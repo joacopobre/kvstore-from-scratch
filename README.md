@@ -23,8 +23,8 @@ implementation.
 
 ## Roadmap
 
-- [x] Write-Ahead Log — durable, append-only log using `fsync` for crash safety
-- [ ] Crash-safety hardening (torn/partial write detection)
+- [X] Write-Ahead Log — durable, append-only log using `fsync` for crash safety
+- [X] Crash-safety hardening (torn/partial write detection)
 - [ ] In-memory write buffer
 - [ ] Flushing to immutable on-disk sorted files
 - [ ] Compaction
