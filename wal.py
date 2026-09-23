@@ -9,6 +9,7 @@ def append_entry(path:str, data:bytes)->None:
         os.fsync(f.fileno())
 
 def _scan_entries(path:str)-> tuple[list[bytes], int]:
+    if not os.path.exists(path): return [], 0
     last_good_ofset = 0
     entries = []
     with open(path, 'rb')as f:
@@ -31,6 +32,8 @@ def read_all_entries(path:str) -> list[bytes]:
     return entries
 
 def recover(path:str) -> list[bytes]:
+    if not os.path.exists(path):
+        return []
     entries, ofset = _scan_entries(path)
     if( os.path.getsize(path) > ofset):
         with open(path, 'r+b') as f:

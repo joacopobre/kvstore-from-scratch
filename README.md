@@ -25,7 +25,8 @@ implementation.
 
 - [X] Write-Ahead Log — durable, append-only log using `fsync` for crash safety
 - [X] Crash-safety hardening (torn/partial write detection)
-- [ ] In-memory write buffer
+- [X] In-memory write buffer
+- [X] SET/DELETE/tombstone
 - [ ] Flushing to immutable on-disk sorted files
 - [ ] Compaction
 - [ ] Reads across memory + disk
