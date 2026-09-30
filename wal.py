@@ -8,6 +8,9 @@ def append_entry(path:str, data:bytes)->None:
         f.flush()
         os.fsync(f.fileno())
 
+# Iterate over the file and gather entries, 
+# if prefix or entrie length do not lign up 
+# stop and return the last good ofset adn the entries 
 def _scan_entries(path:str)-> tuple[list[bytes], int]:
     if not os.path.exists(path): return [], 0
     last_good_ofset = 0
@@ -31,6 +34,9 @@ def read_all_entries(path:str) -> list[bytes]:
     entries, ofset = _scan_entries(path)
     return entries
 
+# Run on crash, gets last good ofset and entries and trunctate the tables 
+# at the last good ofset to delete the torn entrie.
+# returning the entries for Store to re construct the memtable
 def recover(path:str) -> list[bytes]:
     if not os.path.exists(path):
         return []

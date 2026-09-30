@@ -1,6 +1,9 @@
+import sys
 import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from wal import append_entry, read_all_entries,recover
-from scrach_file import encode_record, decode_record
+from records import encode_record, decode_record
 
 # # --- Test 1: clean file, multiple entries ---
 # if os.path.exists('clean.bin'):
