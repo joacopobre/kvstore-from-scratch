@@ -27,7 +27,7 @@ implementation.
 - [X] Crash-safety hardening (torn/partial write detection)
 - [X] In-memory write buffer
 - [X] SET/DELETE/tombstone
-- [ ] Flushing to immutable on-disk sorted files
+- [X] Flushing to immutable on-disk sorted files
 - [ ] Compaction
 - [ ] Reads across memory + disk
 - [ ] Full crash recovery via WAL replay
