@@ -1,17 +1,29 @@
 import os 
 
-def flush_memtable(memtabe : dict, path:str) -> None :
-    sorted_memtable = sorted(memtabe.keys())
-    with open(path,'wb') as f:
+# fsync on the temp file makes the contents durable.
+# rename makes the swap atomic, so no partial file is ever visible at the real path.
+# fsync on the directory makes the rename durable.
+
+def flush_memtable(memtable : dict, path:str) -> None :
+    sorted_memtable = sorted(memtable.keys())
+    temp_path = path + '.tmp'
+    with open(temp_path,'wb') as f:
         for key in sorted_memtable:
             key_length = len(key).to_bytes(4, 'big')
-            value = memtabe.get(key)
+            value = memtable.get(key)
             data_length = len(key) + len(value) + 4
             outer_length = data_length.to_bytes(4, 'big')
             f.write(outer_length + key_length + key + value)
         f.flush()
         os.fsync(f.fileno())
-    return 
+    os.rename(temp_path, path)
+    dir_path = os.path.dirname(path) if os.path.dirname(path) != '' else "."
+    dir_fd = os.open(dir_path, os.O_RDONLY)
+    try:
+        os.fsync(dir_fd)
+    finally:
+        os.close(dir_fd)
+     
 
 
 def read_sstable_linear(path) -> dict: 
