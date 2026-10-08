@@ -1,4 +1,9 @@
-import os 
+
+import os
+from utils.decode_entry import decode_sstable_entry
+from utils.encode_entry import encode_sstable_entry
+
+
 
 # fsync on the temp file makes the contents durable.
 # rename makes the swap atomic, so no partial file is ever visible at the real path.
@@ -9,11 +14,9 @@ def flush_memtable(memtable : dict, path:str) -> None :
     temp_path = path + '.tmp'
     with open(temp_path,'wb') as f:
         for key in sorted_memtable:
-            key_length = len(key).to_bytes(4, 'big')
             value = memtable.get(key)
-            data_length = len(key) + len(value) + 4
-            outer_length = data_length.to_bytes(4, 'big')
-            f.write(outer_length + key_length + key + value)
+            
+            f.write(encode_sstable_entry(key, value))
         f.flush()
         os.fsync(f.fileno())
     os.rename(temp_path, path)
@@ -23,10 +26,9 @@ def flush_memtable(memtable : dict, path:str) -> None :
         os.fsync(dir_fd)
     finally:
         os.close(dir_fd)
-     
 
 
-def read_sstable_linear(path) -> dict: 
+def read_sstable_linear(path:str) -> dict: 
     memtable = {}
     with open(path, 'rb') as f:
         while True:
@@ -35,13 +37,37 @@ def read_sstable_linear(path) -> dict:
                 break 
             data_len_int = int.from_bytes(data_len, 'big')
             data = f.read(data_len_int)
-            
-            key_len = int.from_bytes(data[0:4], 'big')
-            key = data[4:4 + key_len]
-            value = data[4 + key_len:]
+            (key, value) = decode_sstable_entry(data)
             memtable[key] = value
             
     return memtable
+
+def build_index(path:str) -> dict:
+    index = {}
+    with open(path, 'rb') as f:
+        while True:
+            start_offset = f.tell()
+            data_len = f.read(4)
+            if(data_len == b''):
+                break 
+            data_len_int = int.from_bytes(data_len, 'big')
+            data = f.read(data_len_int)
+            (key, _) = decode_sstable_entry(data)
+            index[key] = start_offset
+    return index
+
+def get_from_sstable(path: str, index: dict, key: bytes )-> bytes | None:
+    if key not in index: 
+        return None 
+    with open(path, 'rb') as f:
+        f.seek(index[key])
+        data_len = f.read(4)
+        if data_len == b'':
+            return None 
+        data_len_int = int.from_bytes(data_len, 'big')
+        data = f.read(data_len_int)
+        (_, value) = decode_sstable_entry(data)
+    return value 
 
 
 
