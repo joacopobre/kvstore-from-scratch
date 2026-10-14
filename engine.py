@@ -1,6 +1,6 @@
 from wal import append_entry, recover
 from records import encode_record, decode_record
-from records import OP_DELETE, OP_SET
+from records import OP_DELETE, OP_SET, TOMBSTONE
 
 
 class Store:
@@ -11,12 +11,13 @@ class Store:
         
 
         for record in raw_entries:
-            op_type, key_bytes, value = decode_record(record)
-            if(op_type == 0): #SET
-                self.memtable[key_bytes] = value
-            else: #DELETE
-                if(key_bytes in self.memtable):
-                    self.memtable.pop(key_bytes)
+            op_type, key, value = decode_record(record)
+            if(op_type == OP_SET): #SET
+                self.memtable[key] = value
+            elif op_type == OP_DELETE: #DELETE
+                self.memtable[key] = TOMBSTONE
+            else:
+                raise Exception("Operation type not recognized") 
 
     def set(self, key, value):
         encoded_record = encode_record(OP_SET,key,value)
@@ -25,9 +26,13 @@ class Store:
 
     def delete(self, key):
         encoded_record = encode_record(OP_DELETE,key) 
-        append_entry(self.path, encoded_record) # Add the instruction to the Wall
-        if(key in self.memtable): # deliverate decision, no key nothing happens, the inteded outcome holds, that key is not on the table 
-            self.memtable.pop(key) # update the memtable, delete the key
+        append_entry(self.path, encoded_record) # Add the instruction to the Wal
+        self.memtable[key] = TOMBSTONE
 
     def get(self, key):
-        return self.memtable.get(key)
+        if key not in self.memtable:
+            return None 
+        value = self.memtable.get(key)
+        if value is TOMBSTONE:
+            return None 
+        return value 
