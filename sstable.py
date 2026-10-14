@@ -32,7 +32,7 @@ def flush_memtable(memtable : dict, path:str) -> None :
 
 
 def read_sstable_linear(path:str) -> dict: 
-    memtable = {}
+    entries = {}
     with open(path, 'rb') as f:
         while True:
             data_len = f.read(4)
@@ -40,10 +40,13 @@ def read_sstable_linear(path:str) -> dict:
                 break 
             data_len_int = int.from_bytes(data_len, 'big')
             data = f.read(data_len_int)
-            (key, value) = decode_sstable_entry(data)
-            memtable[key] = value
+            (op_type, key, value) = decode_sstable_entry(data)
+            if op_type == OP_DELETE:
+                entries[key] = TOMBSTONE
+            else:
+                entries[key] = value
             
-    return memtable
+    return entries
 
 def build_index(path:str) -> dict:
     index = {}
@@ -71,7 +74,7 @@ def get_from_sstable(path: str, index: dict, key: bytes )-> bytes | None | objec
         data = f.read(data_len_int)
         (op_type, _, value) = decode_sstable_entry(data)
         # returns TOMBSTONE for a deleted key
-        if op_type is OP_DELETE:
+        if op_type == OP_DELETE:
             return TOMBSTONE
     return value 
 
