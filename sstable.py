@@ -59,7 +59,7 @@ def build_index(path:str) -> dict:
             index[key] = start_offset
     return index
 
-def get_from_sstable(path: str, index: dict, key: bytes )-> bytes | None:
+def get_from_sstable(path: str, index: dict, key: bytes )-> bytes | None | object:
     if key not in index: 
         return None 
     with open(path, 'rb') as f:
@@ -69,7 +69,10 @@ def get_from_sstable(path: str, index: dict, key: bytes )-> bytes | None:
             return None 
         data_len_int = int.from_bytes(data_len, 'big')
         data = f.read(data_len_int)
-        (_, value) = decode_sstable_entry(data)
+        (op_type, _, value) = decode_sstable_entry(data)
+        # returns TOMBSTONE for a deleted key
+        if op_type is OP_DELETE:
+            return TOMBSTONE
     return value 
 
 
