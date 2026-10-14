@@ -2,6 +2,7 @@
 import os
 from utils.decode_entry import decode_sstable_entry
 from utils.encode_entry import encode_sstable_entry
+from records import TOMBSTONE, OP_DELETE, OP_SET
 
 
 
@@ -14,9 +15,11 @@ def flush_memtable(memtable : dict, path:str) -> None :
     temp_path = path + '.tmp'
     with open(temp_path,'wb') as f:
         for key in sorted_memtable:
-            value = memtable.get(key)
-            
-            f.write(encode_sstable_entry(key, value))
+            value = memtable[key]
+            if value is TOMBSTONE:
+                f.write(encode_sstable_entry(OP_DELETE, key))
+            else:
+                f.write(encode_sstable_entry(OP_SET, key, value))
         f.flush()
         os.fsync(f.fileno())
     os.rename(temp_path, path)
@@ -52,7 +55,7 @@ def build_index(path:str) -> dict:
                 break 
             data_len_int = int.from_bytes(data_len, 'big')
             data = f.read(data_len_int)
-            (key, _) = decode_sstable_entry(data)
+            (_, key, _) = decode_sstable_entry(data)
             index[key] = start_offset
     return index
 

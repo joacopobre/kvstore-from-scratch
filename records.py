@@ -1,3 +1,5 @@
+# shared tombstone marker
+TOMBSTONE = object()
 
 OP_SET = 0
 OP_DELETE = 1
