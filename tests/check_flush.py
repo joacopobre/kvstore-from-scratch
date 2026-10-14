@@ -2,16 +2,21 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sstable import read_sstable_linear
+from records import TOMBSTONE
+from sstable import  flush_memtable
 
-result = read_sstable_linear('sstable_test.bin')
-print(result)
+memtable = {b"a": b"1", b"b": TOMBSTONE}
 
-assert result == {b"old": b"1"} , 'SSTable does not returs last good state'
-print("'SSTable returs last good state'")
+flush_memtable(memtable, 'flush_tombstone_test.bin')
 
-assert os.path.exists('sstable_test.bin.tmp') == True, 'temp file does not exists'
-print("temp file exists")
+with open('flush_tombstone_test.bin', "rb") as f:
+    actual = f.read()
 
-tmp_result = read_sstable_linear('sstable_test.bin.tmp')
-assert tmp_result == {b"new": b"2"}
+row_a = b"\x00\x00\x00\x07" + b"\x00" + b"\x00\x00\x00\x01" + b"a" + b"1"
+row_b = b"\x00\x00\x00\x06" + b"\x01" + b"\x00\x00\x00\x01" + b"b" + b""
+
+expected = row_a + row_b
+
+assert expected == actual 
+
+print("PASSED")
