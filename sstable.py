@@ -4,7 +4,9 @@ from utils.decode_entry import decode_sstable_entry
 from utils.encode_entry import encode_sstable_entry
 from records import TOMBSTONE, OP_DELETE, OP_SET
 
-
+SEQ_WIDTH = 6
+SEQ_PREFIX = 'sstable_'
+SEQ_SUFFIX = '.bin'
 
 # fsync on the temp file makes the contents durable.
 # rename makes the swap atomic, so no partial file is ever visible at the real path.
@@ -77,6 +79,11 @@ def get_from_sstable(path: str, index: dict, key: bytes )-> bytes | None | objec
         if op_type == OP_DELETE:
             return TOMBSTONE
     return value 
+
+def generate_padded_filepath(directory: str, seq: int)-> str:
+    name = SEQ_PREFIX + str(seq).zfill(SEQ_WIDTH) + SEQ_SUFFIX
+    return os.path.join(directory, name)
+
 
 
 
