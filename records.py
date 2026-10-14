@@ -1,4 +1,8 @@
 
+OP_SET = 0
+OP_DELETE = 1
+OP_SIZE = 1
+KEY_LEN_SIZE = 4 
 
 def encode_record(op_value: int, key: bytes, value: bytes =b"") -> bytes:
     byte_op = op_value.to_bytes(1, 'big')
@@ -7,8 +11,7 @@ def encode_record(op_value: int, key: bytes, value: bytes =b"") -> bytes:
     return byte_op + key_len_prefix + key + value
 
 def decode_record(record: bytes) -> tuple[int,bytes,bytes]:
-    OP_SIZE = 1
-    KEY_LEN_SIZE = 4 
+    
 
     operation = record[0:OP_SIZE] # first byte for operation
     op_type = int.from_bytes(operation, 'big') # make it an int (0 or 1) = (SET or DELETE)

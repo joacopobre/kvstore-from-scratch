@@ -1,11 +1,14 @@
 from wal import append_entry, recover
 from records import encode_record, decode_record
+from records import OP_DELETE, OP_SET
+
 
 class Store:
     def __init__(self, path):
         self.memtable = {}
         self.path = path
         raw_entries = recover(path)
+        
 
         for record in raw_entries:
             op_type, key_bytes, value = decode_record(record)
@@ -16,12 +19,12 @@ class Store:
                     self.memtable.pop(key_bytes)
 
     def set(self, key, value):
-        encoded_record = encode_record(0,key,value)
+        encoded_record = encode_record(OP_SET,key,value)
         append_entry(self.path,encoded_record) # Add the instruction to the Wall
         self.memtable[key] = value # update the memtable, set the key to the value 
 
     def delete(self, key):
-        encoded_record = encode_record(1,key) 
+        encoded_record = encode_record(OP_DELETE,key) 
         append_entry(self.path, encoded_record) # Add the instruction to the Wall
         if(key in self.memtable): # deliverate decision, no key nothing happens, the inteded outcome holds, that key is not on the table 
             self.memtable.pop(key) # update the memtable, delete the key
