@@ -7,7 +7,8 @@ from records import TOMBSTONE, OP_DELETE, OP_SET
 SEQ_WIDTH = 6
 SEQ_PREFIX = 'sstable_'
 SEQ_SUFFIX = '.bin'
-
+PREFIX_LEN = len(SEQ_PREFIX)
+SUFFIX_LEN = len(SEQ_SUFFIX)
 # fsync on the temp file makes the contents durable.
 # rename makes the swap atomic, so no partial file is ever visible at the real path.
 # fsync on the directory makes the rename durable.
@@ -83,6 +84,18 @@ def get_from_sstable(path: str, index: dict, key: bytes )-> bytes | None | objec
 def generate_padded_filepath(directory: str, seq: int)-> str:
     name = SEQ_PREFIX + str(seq).zfill(SEQ_WIDTH) + SEQ_SUFFIX
     return os.path.join(directory, name)
+
+def get_latest_seq(directory: str) -> int:
+    files = os.listdir(directory)
+    latest = 0
+    
+    for file in files:
+        if file.startswith(SEQ_PREFIX) and file.endswith(SEQ_SUFFIX):
+            number = file[PREFIX_LEN: -SUFFIX_LEN]
+            if number.isdigit(): 
+                latest = max(latest, int(number))
+
+    return latest
 
 
 
