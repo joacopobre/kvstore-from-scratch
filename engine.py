@@ -1,14 +1,22 @@
 from wal import append_entry, recover
 from records import encode_record, decode_record
+from sstable import get_latest_seq, generate_padded_filepath, flush_memtable, build_index
 from records import OP_DELETE, OP_SET, TOMBSTONE
+import os
 
+WAL_FILENAME = 'wal.log'
 
 class Store:
-    def __init__(self, path):
+    def __init__(self, directory):
+        os.makedirs(directory, exist_ok=True)
+
         self.memtable = {}
-        self.path = path
-        raw_entries = recover(path)
-        
+        self.wal_path = os.path.join(directory, WAL_FILENAME)
+        self.directory = directory
+        self.seq_num = get_latest_seq(self.directory) # highest sequence number used so far; the next flush writes seq_num + 1
+        self.sstable_list = []
+        raw_entries = recover(self.wal_path)
+
 
         for record in raw_entries:
             op_type, key, value = decode_record(record)
@@ -17,16 +25,16 @@ class Store:
             elif op_type == OP_DELETE: #DELETE
                 self.memtable[key] = TOMBSTONE
             else:
-                raise Exception("Operation type not recognized") 
+                raise ValueError("Operation type not recognized") 
 
     def set(self, key, value):
         encoded_record = encode_record(OP_SET,key,value)
-        append_entry(self.path,encoded_record) # Add the instruction to the Wall
+        append_entry(self.wal_path,encoded_record) # Add the instruction to the Wall
         self.memtable[key] = value # update the memtable, set the key to the value 
 
     def delete(self, key):
         encoded_record = encode_record(OP_DELETE,key) 
-        append_entry(self.path, encoded_record) # Add the instruction to the Wal
+        append_entry(self.wal_path, encoded_record) # Add the instruction to the Wal
         self.memtable[key] = TOMBSTONE
 
     def get(self, key):
@@ -36,3 +44,14 @@ class Store:
         if value is TOMBSTONE:
             return None 
         return value 
+
+    def flush(self):
+        if not self.memtable:
+            return 
+        new_seq = self.seq_num + 1
+        new_path = generate_padded_filepath(self.directory, new_seq)
+        flush_memtable(self.memtable, new_path)
+        new_index = build_index(new_path)
+        self.sstable_list.append((new_path, new_index))
+        self.seq_num = new_seq
+        self.memtable.clear()

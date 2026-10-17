@@ -1,22 +1,45 @@
 import sys
 import os
+import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from records import TOMBSTONE
-from sstable import  flush_memtable
+from engine import Store
 
-memtable = {b"a": b"1", b"b": TOMBSTONE}
+with tempfile.TemporaryDirectory() as directory:
+    store = Store(directory)
 
-flush_memtable(memtable, 'flush_tombstone_test.bin')
+    # round 1
+    store.set(b"a", b"1")
+    store.set(b"b", b"2")
+    store.delete(b"b")
+    store.flush()
 
-with open('flush_tombstone_test.bin', "rb") as f:
-    actual = f.read()
+    # TODO: assert "sstable_000001.bin" is in os.listdir(directory)
+    assert "sstable_000001.bin" in os.listdir(directory)
+    # TODO: assert len(store.sstable_list) == 1
+    assert len(store.sstable_list) == 1
+    # TODO: assert the memtable is empty
+    assert not store.memtable
+    # TODO: assert store.seq_num == 1
+    assert store.seq_num == 1 
+    print("PASSED round 1")
 
-row_a = b"\x00\x00\x00\x07" + b"\x00" + b"\x00\x00\x00\x01" + b"a" + b"1"
-row_b = b"\x00\x00\x00\x06" + b"\x01" + b"\x00\x00\x00\x01" + b"b" + b""
+    # round 2
+    store.set(b"c", b"3")
+    store.flush()
 
-expected = row_a + row_b
+    # TODO: assert both sstable_000001.bin AND sstable_000002.bin are in the directory
+    assert "sstable_000001.bin" in os.listdir(directory) and 'sstable_000002.bin' in os.listdir(directory)
+    # TODO: assert len(store.sstable_list) == 2 and store.seq_num == 2
+    assert len(store.sstable_list) == 2 and store.seq_num == 2
+    print("PASSED round 2")
 
-assert expected == actual 
+with tempfile.TemporaryDirectory() as directory:
+    store = Store(directory)
+    store.flush()   # nothing was ever set
 
-print("PASSED")
+    # TODO: assert no sstable file exists, sstable_list is empty, seq_num is 0
+    assert not os.listdir(directory)
+    assert not store.sstable_list 
+    assert store.seq_num == 0
+    print("PASSED empty flush")
