@@ -1,6 +1,6 @@
 from wal import append_entry, recover
 from records import encode_record, decode_record
-from sstable import get_latest_seq, generate_padded_filepath, flush_memtable, build_index
+from sstable import get_latest_seq, generate_padded_filepath, flush_memtable, build_index, get_from_sstable
 from records import OP_DELETE, OP_SET, TOMBSTONE
 import os
 
@@ -38,12 +38,20 @@ class Store:
         self.memtable[key] = TOMBSTONE
 
     def get(self, key):
-        if key not in self.memtable:
-            return None 
-        value = self.memtable.get(key)
-        if value is TOMBSTONE:
-            return None 
-        return value 
+        # the key is on the memtable either with a value or as a deleted one, return accordingly 
+        if key in self.memtable:
+            if self.memtable[key] is TOMBSTONE:
+                return None
+            return self.memtable[key]
+        # iterate over the reversed sstable_list, and for each check, if TOM return None, else return the value (value or None), nothing found, no key ever stored, return none 
+        for (path, index) in reversed(self.sstable_list):
+            value = get_from_sstable(path, index, key)
+            if value is TOMBSTONE:
+                return None 
+            if value is not None:
+                return value 
+        
+        return None
 
     def flush(self):
         if not self.memtable:
