@@ -67,3 +67,7 @@ class Store:
         self.sstable_list.append((new_path, new_index))
         self.seq_num = new_seq
         self.memtable.clear()
+        try:
+            os.remove(self.wal_path)
+        except FileNotFoundError:
+            pass
