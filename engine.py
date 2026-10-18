@@ -1,6 +1,6 @@
 from wal import append_entry, recover
 from records import encode_record, decode_record
-from sstable import get_latest_seq, generate_padded_filepath, flush_memtable, build_index, get_from_sstable
+from sstable import get_latest_seq, generate_padded_filepath, flush_memtable, build_index, get_from_sstable, get_all_sstables
 from records import OP_DELETE, OP_SET, TOMBSTONE
 import os
 
@@ -14,9 +14,13 @@ class Store:
         self.wal_path = os.path.join(directory, WAL_FILENAME)
         self.directory = directory
         self.seq_num = get_latest_seq(self.directory) # highest sequence number used so far; the next flush writes seq_num + 1
+        sstable_paths = get_all_sstables(self.directory)
         self.sstable_list = []
         raw_entries = recover(self.wal_path)
 
+        for path in sstable_paths:
+            index = build_index(path)
+            self.sstable_list.append((path, index))
 
         for record in raw_entries:
             op_type, key, value = decode_record(record)

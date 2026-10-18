@@ -97,6 +97,20 @@ def get_latest_seq(directory: str) -> int:
 
     return latest
 
+def get_all_sstables(directory: str)-> list[str]:
+    files = []
+    directory_files = os.listdir(directory)
+    for file in directory_files:
+        if file.startswith(SEQ_PREFIX) and file.endswith(SEQ_SUFFIX):
+                number = file[PREFIX_LEN: -SUFFIX_LEN]
+                if number.isdigit(): 
+                    files.append((int(number),os.path.join(directory, file)))
+    paths = []
+    for number, path in sorted(files):
+        paths.append(path)
+    return paths
+
+
 
 
 
