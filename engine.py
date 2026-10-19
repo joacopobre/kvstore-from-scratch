@@ -5,9 +5,10 @@ from records import OP_DELETE, OP_SET, TOMBSTONE
 import os
 
 WAL_FILENAME = 'wal.log'
+DEFAULT_MEMTABLE_LIMIT = 4 * 1024 * 1024
 
 class Store:
-    def __init__(self, directory):
+    def __init__(self, directory, memtable_limit= DEFAULT_MEMTABLE_LIMIT):
         os.makedirs(directory, exist_ok=True)
 
         self.memtable = {}
@@ -16,6 +17,8 @@ class Store:
         self.seq_num = get_latest_seq(self.directory) # highest sequence number used so far; the next flush writes seq_num + 1
         sstable_paths = get_all_sstables(self.directory)
         self.sstable_list = []
+        self.memtable_bytes = 0
+        self.memtable_limit = memtable_limit
         raw_entries = recover(self.wal_path)
 
         for path in sstable_paths:
@@ -25,21 +28,23 @@ class Store:
         for record in raw_entries:
             op_type, key, value = decode_record(record)
             if(op_type == OP_SET): #SET
-                self.memtable[key] = value
+                self._apply(key, value)
             elif op_type == OP_DELETE: #DELETE
-                self.memtable[key] = TOMBSTONE
+                self._apply(key, TOMBSTONE)
             else:
                 raise ValueError("Operation type not recognized") 
 
     def set(self, key, value):
         encoded_record = encode_record(OP_SET,key,value)
         append_entry(self.wal_path,encoded_record) # Add the instruction to the Wall
-        self.memtable[key] = value # update the memtable, set the key to the value 
+        self._apply(key, value)
+        self._maybe_flush()
 
     def delete(self, key):
         encoded_record = encode_record(OP_DELETE,key) 
         append_entry(self.wal_path, encoded_record) # Add the instruction to the Wal
-        self.memtable[key] = TOMBSTONE
+        self._apply(key, TOMBSTONE)
+        self._maybe_flush()
 
     def get(self, key):
         # the key is on the memtable either with a value or as a deleted one, return accordingly 
@@ -67,7 +72,19 @@ class Store:
         self.sstable_list.append((new_path, new_index))
         self.seq_num = new_seq
         self.memtable.clear()
+        self.memtable_bytes = 0
         try:
             os.remove(self.wal_path)
         except FileNotFoundError:
             pass
+
+    def _apply(self, key: bytes, value=TOMBSTONE):
+        self.memtable[key] = value
+        if value is TOMBSTONE:
+            self.memtable_bytes += len(key) + 1
+        else:
+            self.memtable_bytes += len(key) + len(value)
+
+    def _maybe_flush(self):
+        if self.memtable_bytes >= self.memtable_limit:
+            self.flush()
