@@ -16,10 +16,7 @@ every decision in it.
 
 ## Status
 
-🚧 Early / in progress. Currently working through the durability layer
-(Write-Ahead Log). Being built incrementally — each stage is implemented only
-after understanding the concept behind it, not copied from a reference
-implementation.
+🚧 Early / in progress. WAL, memtable, tombstones, SSTables with an index, automatic flush by size, and startup recovery.
 
 ## Roadmap
 
@@ -29,7 +26,8 @@ implementation.
 - [X] SET/DELETE/tombstone
 - [X] Flushing to immutable on-disk sorted files
 - [ ] Compaction
-- [ ] Reads across memory + disk
+- [X] Automatic flush by memtable size
+- [X] Reads across memory + disk
 - [ ] Full crash recovery via WAL replay
 - [ ] Concurrency control
 - [ ] Wire protocol / server
@@ -44,3 +42,16 @@ ambiguity. Durability is enforced by explicitly flushing Python's internal
 buffer and calling `fsync()` before acknowledging a write as successful —
 verified with a real crash-simulation test (`os._exit()` immediately after a
 write, followed by a fresh read in a separate process run).
+
+* SSTable row format: `[outer length][op flag][key length][key][value]`.
+* Flush is atomic: write a `.tmp` file, fsync, rename, then fsync the directory.
+* Newest wins: files are numbered, read newest to oldest, and the number is parsed as an integer, never sorted as text.
+* The flush trigger: a byte counter that only adds, shared by live writes and replay, with a default of 4 MB.
+* State the trade-off: overwrites are over-counted, which means earlier flushes, the safe direction.
+
+## Limitations
+* Single-threaded, with no locking yet.
+* A flush runs inside the set that triggers it, so write is slow.
+* No compaction yet, so reads slow down as files accumulate and tombstones aren’t reclaimed.
+* Each SSTable’s full index is held in memory.
+

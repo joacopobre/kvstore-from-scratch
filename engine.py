@@ -33,6 +33,8 @@ class Store:
                 self._apply(key, TOMBSTONE)
             else:
                 raise ValueError("Operation type not recognized") 
+        
+        self._maybe_flush()
 
     def set(self, key, value):
         encoded_record = encode_record(OP_SET,key,value)
