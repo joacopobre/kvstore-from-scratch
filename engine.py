@@ -1,6 +1,6 @@
 from wal import append_entry, recover
 from records import encode_record, decode_record
-from sstable import get_latest_seq, generate_padded_filepath, flush_memtable, build_index, get_from_sstable, get_all_sstables
+from sstable import get_latest_seq, generate_padded_filepath, flush_memtable, build_index, get_from_sstable, get_all_sstables, read_sstable_linear, merge_tables
 from records import OP_DELETE, OP_SET, TOMBSTONE
 import os
 
@@ -15,13 +15,13 @@ class Store:
         self.wal_path = os.path.join(directory, WAL_FILENAME)
         self.directory = directory
         self.seq_num = get_latest_seq(self.directory) # highest sequence number used so far; the next flush writes seq_num + 1
-        sstable_paths = get_all_sstables(self.directory)
+        self.sstable_paths = get_all_sstables(self.directory)
         self.sstable_list = []
         self.memtable_bytes = 0
         self.memtable_limit = memtable_limit
         raw_entries = recover(self.wal_path)
 
-        for path in sstable_paths:
+        for path in self.sstable_paths:
             index = build_index(path)
             self.sstable_list.append((path, index))
 
@@ -91,5 +91,35 @@ class Store:
         if self.memtable_bytes >= self.memtable_limit:
             self.flush()
 
-    
+    def compact(self):
+        all_sstables = get_all_sstables(self.directory)
+        # if only one file no need to compact 
+        if len(all_sstables) < 2: 
+            return 
+        
+        read_sstables = []
+        for path in all_sstables:
+            read_sstables.append(read_sstable_linear(path))
+        
+        merged_sstables = merge_tables(read_sstables, drop_tombstones=True)
+        
+        new_seq = self.seq_num + 1
+        new_path = generate_padded_filepath(self.directory, new_seq)
+
+        flush_memtable(merged_sstables, new_path)
+
+        for path in all_sstables:
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                #if file gone is fine when the goal is to delete
+                pass
+
+        # update sstable_list and build index 
+        index = build_index(new_path)
+        self.sstable_list = [(new_path, index)]
+        self.seq_num = new_seq
+
+
+
 
