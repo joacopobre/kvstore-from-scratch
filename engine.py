@@ -6,9 +6,10 @@ import os
 
 WAL_FILENAME = 'wal.log'
 DEFAULT_MEMTABLE_LIMIT = 4 * 1024 * 1024
+DEFAULT_COMPACTION_THRESHOLD = 4
 
 class Store:
-    def __init__(self, directory, memtable_limit= DEFAULT_MEMTABLE_LIMIT):
+    def __init__(self, directory, memtable_limit= DEFAULT_MEMTABLE_LIMIT, compaction_threshold = DEFAULT_COMPACTION_THRESHOLD):
         os.makedirs(directory, exist_ok=True)
 
         self.memtable = {}
@@ -19,6 +20,7 @@ class Store:
         self.memtable_bytes = 0
         self.memtable_limit = memtable_limit
         raw_entries = recover(self.wal_path)
+        self.compaction_threshold = compaction_threshold
 
         sstable_paths = get_all_sstables(self.directory)
         for path in sstable_paths:
@@ -90,6 +92,8 @@ class Store:
     def _maybe_flush(self):
         if self.memtable_bytes >= self.memtable_limit:
             self.flush()
+            if len(self.sstable_list) >= self.compaction_threshold: 
+                self.compact()
 
     def compact(self):
         all_sstables = get_all_sstables(self.directory)
