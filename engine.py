@@ -15,13 +15,13 @@ class Store:
         self.wal_path = os.path.join(directory, WAL_FILENAME)
         self.directory = directory
         self.seq_num = get_latest_seq(self.directory) # highest sequence number used so far; the next flush writes seq_num + 1
-        self.sstable_paths = get_all_sstables(self.directory)
         self.sstable_list = []
         self.memtable_bytes = 0
         self.memtable_limit = memtable_limit
         raw_entries = recover(self.wal_path)
 
-        for path in self.sstable_paths:
+        sstable_paths = get_all_sstables(self.directory)
+        for path in sstable_paths:
             index = build_index(path)
             self.sstable_list.append((path, index))
 
