@@ -90,3 +90,6 @@ class Store:
     def _maybe_flush(self):
         if self.memtable_bytes >= self.memtable_limit:
             self.flush()
+
+    
+

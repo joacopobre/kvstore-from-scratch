@@ -110,6 +110,26 @@ def get_all_sstables(directory: str)-> list[str]:
         paths.append(path)
     return paths
 
+def merge_tables(tables: list[dict], drop_tombstones: bool)-> dict:
+    result = {}
+    tombstones = {}
+
+    for table in reversed(tables):
+        for key, value in table.items():
+            # if we are dropping TOMBSTONES
+            if drop_tombstones:
+                if value is TOMBSTONE and key not in tombstones:
+                    tombstones[key] = value
+                    continue
+                elif key in tombstones:
+                    continue
+            if key not in result:
+                result[key] = value
+
+    return result 
+
+
+
 
 
 
