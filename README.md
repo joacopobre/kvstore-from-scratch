@@ -1,3 +1,4 @@
+
 # kvstore-from-scratch — A Storage Engine Built From Scratch
 
 A key-value storage engine built from first principles in Python — no database
@@ -46,7 +47,7 @@ compaction threshold (default 4 files) can be passed to `Store(...)`.
 - [X] Automatic flush by memtable size
 - [X] Reads across memory + disk
 - [X] Compaction
-- [ ] Full crash recovery (crash-injection tests for flush and compaction)
+- [X] Full crash recovery (crash-injection tests for flush and compaction)
 - [ ] Concurrency control
 - [ ] Wire protocol / server
 - [ ] Client + minimal web console
@@ -69,6 +70,7 @@ SSTables from newest to oldest, and the first file that mentions the key
 decides the answer.
 
 **SSTables.**
+
 * Row format: `[outer length][op flag][key length][key][value]`. The op flag
   distinguishes a value from a tombstone, which is stored with an empty value.
 * Each file has an in-memory index mapping every key (tombstones included) to
@@ -117,11 +119,13 @@ replays the WAL into the memtable.
 * Crash behaviour during flush and compaction is verified by constructing the
   on-disk states a crash would leave, not yet by killing a live process
   mid-operation.
+* Crash tests kill the **process** (`os._exit`), not the **power**. The OS still flushes its cache after a process kill, so these tests verify ordering and atomicity of the on-disk steps, but not `fsync` correctness; that is reasoned, not tested.
+
 
 ## Running the tests
 
 Each test file in `tests/` is a standalone script:
 
 ```
-python tests/<name>.py
+pytest tests/<name>.py -v
 ```
