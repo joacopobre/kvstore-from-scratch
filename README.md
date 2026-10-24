@@ -1,4 +1,3 @@
-
 # kvstore-from-scratch — A Storage Engine Built From Scratch
 
 A key-value storage engine built from first principles in Python — no database
@@ -48,7 +47,7 @@ compaction threshold (default 4 files) can be passed to `Store(...)`.
 - [X] Reads across memory + disk
 - [X] Compaction
 - [X] Full crash recovery (crash-injection tests for flush and compaction)
-- [ ] Concurrency control
+- [X] Concurrency control
 - [ ] Wire protocol / server
 - [ ] Client + minimal web console
 - [ ] Deployment
@@ -104,9 +103,11 @@ correct in each, and that deleting in the wrong order does resurrect a key.
 upward, so gaps in numbering are harmless), rebuilds each file's index, then
 replays the WAL into the memtable.
 
+**Concurrency.** One `RLock` per `Store`, held for the whole body of every public method. It’s an `RLock` because `set` calls `flush`, which can call `compact`. The WAL append and the memtable update sit in the same critical section so both orders always agree.
+
 ## Limitations
 
-* Single-threaded, with no locking yet.
+* A single coarse lock serialises everything, including reads. This protects threads but not processes, and the concurrency test is probabilistic.
 * A flush, and any compaction it triggers, run inside the `set`/`delete` that
   causes them, so that write is slow.
 * Compaction rewrites all the data every time and loads it into memory; a
@@ -120,7 +121,6 @@ replays the WAL into the memtable.
   on-disk states a crash would leave, not yet by killing a live process
   mid-operation.
 * Crash tests kill the **process** (`os._exit`), not the **power**. The OS still flushes its cache after a process kill, so these tests verify ordering and atomicity of the on-disk steps, but not `fsync` correctness; that is reasoned, not tested.
-
 
 ## Running the tests
 
