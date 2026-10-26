@@ -54,7 +54,10 @@ def create_listener(host="127.0.0.1", port=9000):
 
 def accept_loop(listener, store):
     while True:
-        conn, addr = listener.accept()
+        try:
+            conn, addr = listener.accept()
+        except OSError:
+            break
         thread = threading.Thread(target=serve_connection, args=(conn, store), daemon=True)
         thread.start()
 
