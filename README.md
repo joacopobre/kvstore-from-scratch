@@ -18,10 +18,14 @@ every decision in it.
 
 🚧 In progress. Working so far: write-ahead log, in-memory write buffer
 (memtable), deletes via tombstones, immutable on-disk sorted files (SSTables)
-with an index, automatic flush by memtable size, compaction, and recovery on
-startup. Next: crash-injection tests, then concurrency control.
+with an index, automatic flush by memtable size, compaction, crash recovery
+(tested by killing a real process mid-operation), thread-safe access, a TCP
+server with a binary wire protocol, and a Python client. Next: a minimal web
+console, then deployment.
 
 ## Usage
+
+**As a library:**
 
 ```python
 from engine import Store
@@ -33,8 +37,26 @@ store.delete(b"name")
 store.get(b"name")             # None (deleted and missing look the same to callers)
 ```
 
+**As a server** (listens on `127.0.0.1:9000`, data in `data/`):
+
+```
+python server.py
+```
+
+```python
+from client import KVClient
+
+client = KVClient("127.0.0.1", 9000)
+client.set(b"name", b"joaquin")
+client.get(b"name")            # b"joaquin"
+client.get(b"missing")         # None
+client.delete(b"name")
+client.close()
+```
+
 Keys and values are `bytes`. The memtable limit (default 4 MB) and the
-compaction threshold (default 4 files) can be passed to `Store(...)`.
+compaction threshold (default 4 files) can be passed to `Store(...)`. A server
+error is raised on the client as `ServerError`.
 
 ## Roadmap
 
@@ -48,8 +70,9 @@ compaction threshold (default 4 files) can be passed to `Store(...)`.
 - [X] Compaction
 - [X] Full crash recovery (crash-injection tests for flush and compaction)
 - [X] Concurrency control
-- [ ] Wire protocol / server
-- [ ] Client + minimal web console
+- [X] Wire protocol / server
+- [X] Python client
+- [ ] Minimal web console
 - [ ] Deployment
 
 ## Design notes
@@ -97,17 +120,55 @@ deleted **oldest first**. This order matters: a tombstone must outlive every
 older file that still holds a value for its key, otherwise a deleted key
 could come back if a crash left some old files behind. Tests build the
 half-finished on-disk states a crash could leave and check that reads stay
-correct in each, and that deleting in the wrong order does resurrect a key.
+correct in each, that deleting in the wrong order does resurrect a key, and a
+real child process is killed at each step of the delete sequence to check the
+real code behaves the same.
 
 **Startup.** The store lists its directory to find SSTables (it never counts
 upward, so gaps in numbering are harmless), rebuilds each file's index, then
 replays the WAL into the memtable.
 
-**Concurrency.** One `RLock` per `Store`, held for the whole body of every public method. It’s an `RLock` because `set` calls `flush`, which can call `compact`. The WAL append and the memtable update sit in the same critical section so both orders always agree.
+**Concurrency.** One `RLock` per `Store`, held for the whole body of every
+public method. It's an `RLock` because `set` calls `flush`, which can call
+`compact`. The WAL append and the memtable update sit in the same critical
+section so both orders always agree. A concurrency test with several writers
+and readers and tiny limits (so flushes and compactions happen constantly)
+fails without the lock and passes with it.
+
+**Wire protocol.** A binary, length-prefixed protocol over TCP. Every message
+is framed as `[4-byte length][payload]`, where the length counts only the
+payload.
+
+* Request payload: `[1B command][4B key length][key][value]`, with commands
+  for SET, GET and DEL.
+* Response payload: `[1B status][body]`, with statuses OK, NOT_FOUND and ERROR.
+  A successful GET carries the value as the body, and an ERROR carries a short
+  message.
+* TCP is a byte stream with no message boundaries, so `read_message` uses
+  `recv_exact` to read exactly the 4-byte length and then exactly that many
+  bytes, however the data is split across packets.
+* Because every field's size is written before it, keys and values can contain
+  any bytes (including zero bytes and bytes that look like protocol framing).
+* A length received from the network is never trusted: messages over 16 MB are
+  rejected before any body is read, so a client cannot make the server
+  allocate arbitrary memory.
+* Encoding and decoding are pure functions, tested with hand-computed bytes.
+
+**Server.** One thread per connection, all sharing a single `Store`, so the
+store's lock is what keeps concurrent clients correct. A malformed request is
+answered with an ERROR response and the connection stays open. An oversized
+length prefix gets an ERROR response and the connection is closed, because the
+stream can no longer be trusted. If the store itself raises, the client gets a
+generic error and the real exception is logged on the server side. Ctrl+C
+closes the listener and flushes the memtable.
 
 ## Limitations
 
-* A single coarse lock serialises everything, including reads. This protects threads but not processes, and the concurrency test is probabilistic.
+* A single coarse lock serialises everything, including reads, so a long flush
+  or compaction blocks every client. The lock protects threads, not processes:
+  two processes opening the same data directory would corrupt each other.
+  Concurrency tests are probabilistic and can show a race, not prove its
+  absence.
 * A flush, and any compaction it triggers, run inside the `set`/`delete` that
   causes them, so that write is slow.
 * Compaction rewrites all the data every time and loads it into memory; a
@@ -117,15 +178,23 @@ replays the WAL into the memtable.
 * Each SSTable's full index is held in memory.
 * Every write is fsynced individually (no batching), which favours durability
   over throughput.
-* Crash behaviour during flush and compaction is verified by constructing the
-  on-disk states a crash would leave, not yet by killing a live process
-  mid-operation.
-* Crash tests kill the **process** (`os._exit`), not the **power**. The OS still flushes its cache after a process kill, so these tests verify ordering and atomicity of the on-disk steps, but not `fsync` correctness; that is reasoned, not tested.
+* Crash tests kill the **process** (`os._exit`), not the **power**. The OS still
+  flushes its cache after a process kill, so these tests verify ordering and
+  atomicity of the on-disk steps, but not `fsync` correctness; that is
+  reasoned, not tested.
+* The server has no authentication or encryption, and no limit on the number of
+  connections (one thread each).
+* `KVClient` wraps a single socket and is not safe to share between threads;
+  use one client per thread.
+* There is no way to list or scan keys, only get/set/delete by exact key.
 
 ## Running the tests
 
-Each test file in `tests/` is a standalone script:
+```
+pytest
+```
 
-```
-pytest tests/<name>.py -v
-```
+The suite includes unit tests with hand-computed bytes, tests over real TCP
+connections, and crash tests that launch a child process and kill it
+(`os._exit`) at chosen points in a flush or a compaction, then reopen the data
+directory and check what survived.
