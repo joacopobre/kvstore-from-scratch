@@ -7,7 +7,7 @@ from protocol import (
     STATUS_OK, STATUS_NOT_FOUND, STATUS_ERROR, 
     encode_response,decode_response,frame,encode_request,read_message, MAX_MESSAGE_SIZE
 )
-from server import handle_request, serve_connection
+from server import accept_loop, create_listener, handle_request, serve_connection
 
 
 
@@ -170,3 +170,69 @@ def test_serve_connection_delete_then_get_not_found(tmp_path):
     assert status == STATUS_NOT_FOUND
     client.close()
     thread.join(timeout=2)
+
+def test_create_listener_picks_a_free_port(tmp_path):
+    listener = create_listener("127.0.0.1", 0)
+    try:
+        port = listener.getsockname()[1]
+        assert port > 0
+    finally:
+        listener.close()
+
+def start_server(tmp_path):
+    """Helper: a store, a listener on a free port, and accept_loop running in a daemon thread."""
+    store = Store(str(tmp_path))
+    listener = create_listener("127.0.0.1", 0)
+    port = listener.getsockname()[1]
+    threading.Thread(target=accept_loop, args=(listener, store), daemon=True).start()
+    return port, listener
+
+
+def connect(port):
+    client = socket.create_connection(("127.0.0.1", port))
+    client.settimeout(2)            # a hang fails the test instead of freezing it
+    return client
+
+
+def test_server_set_then_get_over_tcp(tmp_path):
+    port, listener = start_server(tmp_path)
+    client = connect(port)
+    try:
+        client.sendall(frame(encode_request(CMD_SET, b"a", b"hello")))
+        
+        status, _ = decode_response(read_message(client))
+        assert status == STATUS_OK
+        client.sendall(frame(encode_request(CMD_GET, b"a")))
+        # TODO: read one response, assert (STATUS_OK, b"hello")
+        status, data = decode_response(read_message(client))
+        assert status == STATUS_OK
+        assert data == b"hello"
+    finally:
+        client.close()
+        listener.close()
+
+
+def test_server_two_clients_at_once(tmp_path):
+    port, listener = start_server(tmp_path)
+    c1 = connect(port)
+    c2 = connect(port)              # connected while c1 is still open
+    try:
+        c1.sendall(frame(encode_request(CMD_SET, b"a", b"one")))
+        status, _ = decode_response(read_message(c1))      # wait for the OK
+        assert status == STATUS_OK
+
+        c2.sendall(frame(encode_request(CMD_GET, b"a")))
+        status, data = decode_response(read_message(c2))
+        assert (status, data) == (STATUS_OK, b"one")
+
+        c2.sendall(frame(encode_request(CMD_SET, b"b", b"two")))
+        status, _ = decode_response(read_message(c2))      # wait for the OK
+        assert status == STATUS_OK
+
+        c1.sendall(frame(encode_request(CMD_GET, b"b")))
+        status, data = decode_response(read_message(c1))
+        assert (status, data) == (STATUS_OK, b"two")
+    finally:
+        c1.close()
+        c2.close()
+        listener.close()
