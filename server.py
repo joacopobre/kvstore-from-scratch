@@ -1,6 +1,10 @@
+from engine import Store
 from protocol import encode_response, STATUS_ERROR, STATUS_NOT_FOUND, STATUS_OK, CMD_DEL, CMD_GET, CMD_SET, read_message, decode_response, frame, decode_request
 import socket
 import threading
+
+DATA_DIR = "data"
+PORT = 9000
 def handle_request(store, command, key, value =b""):
     if command == CMD_SET:
         store.set(key, value)
@@ -54,3 +58,14 @@ def accept_loop(listener, store):
         thread = threading.Thread(target=serve_connection, args=(conn, store), daemon=True)
         thread.start()
 
+if __name__ == "__main__":
+    store = Store(DATA_DIR)
+    listener = create_listener("127.0.0.1", PORT)
+    print(f"listening on port {listener.getsockname()[1]}")
+    try:
+        accept_loop(listener, store)
+    except KeyboardInterrupt:
+        print("shutting down")
+    finally:
+        listener.close()
+        store.flush()
