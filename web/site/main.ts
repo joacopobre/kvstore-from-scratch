@@ -10,6 +10,22 @@ const keyInput = el<HTMLInputElement>('key')
 const valueInput = el<HTMLInputElement>('value')
 const out = el<HTMLElement>('out')
 
+const pages = ['project', 'console', 'about']
+const DEFAULT_PAGE = pages[0]
+
+function showPage() {
+  let name = location.hash.slice(1)
+  if (!pages.includes(name)) {
+    name = DEFAULT_PAGE
+  }
+  for (const page of pages) {
+    el(page).hidden = page !== name
+  }
+}
+
+window.addEventListener('hashchange', showPage)
+showPage()
+
 async function getKey() {
   const response = await fetch(
     `/api/get?key=${encodeURIComponent(keyInput.value)}`
