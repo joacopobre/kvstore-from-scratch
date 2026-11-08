@@ -1,8 +1,6 @@
 import http from 'node:http'
 import { KVClient } from '../client'
-import { send } from 'node:process'
-import { buffer } from 'node:stream/consumers'
-import { read } from 'node:fs'
+
 
 const STORE_HOST = '127.0.0.1'
 const STORE_PORT = 9000
@@ -33,116 +31,101 @@ async function readBody(req: http.IncomingMessage): Promise<Buffer> {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost')
 
-  if (req.method === 'POST' && url.pathname === '/set') {
-    let body: Buffer
-    try {
-      body = await readBody(req)
-    } catch {
-      sendJson(res, 413, { error: 'body too large' })
+  if (req.method === 'POST' && url.pathname === '/api/set') {
+    const data = await readJson(req, res)
+    if (data === null) return
+    const key = data.key
+    const value = data.value
+    if (typeof key !== 'string' || key === '') {
+      sendJson(res, 400, { error: 'key must be a non-empty string' })
       return
     }
-    let data
-    try {
-      data = JSON.parse(body.toString())
-    } catch {
-      sendJson(res, 400, { error: 'invalid JSON' })
+    if (typeof value !== 'string') {
+      sendJson(res, 400, { error: 'value must be a non-empty string' })
       return
     }
-
-    if (data !== null) {
-      if (typeof data.key !== 'string' || data.key === '') {
-        sendJson(res, 400, { error: 'key must be string' })
-        return
-      }
-      if (typeof data.value !== 'string') {
-        sendJson(res, 400, { error: 'value must be string' })
-        return
-      }
-    } else {
-      sendJson(res, 400, { error: 'no data' })
-      return
-    }
-    try {
-      const client = await KVClient.connect(STORE_HOST, STORE_PORT)
-      try {
-        await client.set(Buffer.from(data.key), Buffer.from(data.value))
-        sendJson(res, 200, { ok: true })
-      } finally {
-        client.close()
-      }
-    } catch (err) {
-      console.log(err)
-      sendJson(res, 502, { error: 'store unavailable' })
-    }
+    await withClient(res, async (client) => {
+      await client.set(Buffer.from(key), Buffer.from(value))
+      sendJson(res, 200, { ok: true })
+    })
     return
   }
 
-  if (req.method === 'POST' && url.pathname === '/delete') {
-    let body: Buffer
-    try {
-      body = await readBody(req)
-    } catch {
-      sendJson(res, 413, { error: 'body too large' })
+  if (req.method === 'POST' && url.pathname === '/api/delete') {
+    const data = await readJson(req, res)
+    if (data === null) return
+    const key = data.key
+    if (typeof key !== 'string' || key === '') {
+      sendJson(res, 400, { error: 'key must be a non-empty string' })
       return
     }
-    let data
-    try {
-      data = JSON.parse(body.toString())
-    } catch {
-      sendJson(res, 400, { error: 'invalid JSON' })
-      return
-    }
-    if (data !== null) {
-      if (typeof data.key !== 'string' || data.key === '') {
-        sendJson(res, 400, { error: 'key must be a string' })
-        return
-      }
-    } else {
-      sendJson(res, 400, { error: 'no data' })
-      return
-    }
-    try {
-      const client = await KVClient.connect(STORE_HOST, STORE_PORT)
-      try {
-        await client.delete(Buffer.from(data.key))
-        sendJson(res, 200, { ok: true })
-      } finally {
-        client.close()
-      }
-    } catch (err) {
-      console.log(err)
-      sendJson(res, 502, { error: 'server unavailable' })
-    }
+    await withClient(res, async (client) => {
+      await client.delete(Buffer.from(key))
+      sendJson(res, 200, { ok: true })
+    })
     return
   }
 
-  if (req.method === 'GET' && url.pathname === '/get') {
+  if (req.method === 'GET' && url.pathname === '/api/get') {
     const key = url.searchParams.get('key')
     if (!key) {
       sendJson(res, 400, { error: 'missing key' })
       return
     }
 
-    try {
-      const client = await KVClient.connect(STORE_HOST, STORE_PORT)
-      try {
-        const value = await client.get(Buffer.from(key))
-        if (value === null) {
-          sendJson(res, 404, { error: 'not found' })
-        } else {
-          sendJson(res, 200, { value: value.toString() })
-        }
-      } finally {
-        client.close()
+    await withClient(res, async (client) => {
+      const value = await client.get(Buffer.from(key))
+      if (value === null) {
+        sendJson(res, 404, { error: 'not found' })
+      } else {
+        sendJson(res, 200, { value: value.toString() })
       }
-    } catch (err) {
-      console.log(err)
-      sendJson(res, 502, { error: 'store unavailable' })
-    }
+    })
     return
   }
-
   sendJson(res, 404, { error: 'not found' })
 })
+
+async function withClient(
+  res: http.ServerResponse,
+  action: (client: KVClient) => Promise<void>
+): Promise<void> {
+  try {
+    const client = await KVClient.connect(STORE_HOST, STORE_PORT)
+    try {
+      await action(client)
+    } finally {
+      client.close()
+    }
+  } catch (err) {
+    console.log(err)
+    sendJson(res, 502, { error: 'store unavailable' })
+  }
+}
+
+async function readJson(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<Record<string, unknown> | null> {
+  let body: Buffer
+  try {
+    body = await readBody(req)
+  } catch {
+    sendJson(res, 413, { error: 'body too large' })
+    return null
+  }
+  let data
+  try {
+    data = JSON.parse(body.toString())
+  } catch {
+    sendJson(res, 400, { error: 'invalid JSON' })
+    return null
+  }
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    sendJson(res, 400, { error: 'body must be a JSON object' })
+    return null
+  }
+  return data
+}
 
 server.listen(3000, () => console.log('listening on 3000'))
