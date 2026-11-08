@@ -1,7 +1,6 @@
 import http from 'node:http'
 import { KVClient } from '../client'
 
-
 const STORE_HOST = '127.0.0.1'
 const STORE_PORT = 9000
 const MAX_BODY = 64 * 1024 // 64 KB
@@ -81,6 +80,12 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 200, { value: value.toString() })
       }
     })
+    return
+  }
+  if (req.method === 'GET' && url.pathname === '/') {
+    res.statusCode = 200
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.end('<h1>kvstore</h1>')
     return
   }
   sendJson(res, 404, { error: 'not found' })
