@@ -1,5 +1,7 @@
 import http from 'node:http'
 import { KVClient } from '../client'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 
 const STORE_HOST = '127.0.0.1'
 const STORE_PORT = 9000
@@ -40,7 +42,7 @@ const server = http.createServer(async (req, res) => {
       return
     }
     if (typeof value !== 'string') {
-      sendJson(res, 400, { error: 'value must be a non-empty string' })
+      sendJson(res, 400, { error: 'value must be a string' })
       return
     }
     await withClient(res, async (client) => {
@@ -82,12 +84,8 @@ const server = http.createServer(async (req, res) => {
     })
     return
   }
-  if (req.method === 'GET' && url.pathname === '/') {
-    res.statusCode = 200
-    res.setHeader('Content-Type', 'text/html; charset=utf-8')
-    res.end('<h1>kvstore</h1>')
-    return
-  }
+  if (req.method === 'GET' && (await serveStatic(res, url.pathname))) return
+
   sendJson(res, 404, { error: 'not found' })
 })
 
@@ -131,6 +129,45 @@ async function readJson(
     return null
   }
   return data
+}
+
+const DIST = path.resolve('dist') // run the app from inside web/
+const TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.json': 'application/json'
+}
+
+async function serveStatic(
+  res: http.ServerResponse,
+  pathname: string
+): Promise<boolean> {
+  if (pathname === '/') {
+    pathname = '/index.html'
+  }
+  const fullPath = path.join(DIST, pathname)
+  if (!path.resolve(fullPath).startsWith(DIST + path.sep)) {
+    return false
+  }
+  // TODO 3: read the file with fs.readFile; if that fails (no such file), return false
+  let buff
+  try {
+    buff = await fs.readFile(fullPath)
+  } catch {
+    return false
+  }
+  // TODO 4: set Content-Type from the file's extension (path.extname + TYPES),
+  //   send the file's bytes, and return true
+  res.setHeader(
+    'Content-Type',
+    TYPES[path.extname(fullPath)] ?? 'application/octet-stream'
+  )
+  res.end(buff)
+  return true
 }
 
 server.listen(3000, () => console.log('listening on 3000'))
