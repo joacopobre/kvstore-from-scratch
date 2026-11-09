@@ -6,6 +6,8 @@ import path from 'node:path'
 const STORE_HOST = '127.0.0.1'
 const STORE_PORT = 9000
 const MAX_BODY = 64 * 1024 // 64 KB
+const MAX_KEY_BYTES = 128
+const MAX_VALUE_BYTES = 1024
 
 function sendJson(
   res: http.ServerResponse,
@@ -40,8 +42,16 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
       sendJson(res, 400, { error: 'key must be a non-empty string' })
       return
     }
+    if (Buffer.byteLength(key) > MAX_KEY_BYTES) {
+      sendJson(res, 400, { error: 'key too long (max 128 bytes)' })
+      return
+    }
     if (typeof value !== 'string') {
       sendJson(res, 400, { error: 'value must be a string' })
+      return
+    }
+    if (Buffer.byteLength(value) > MAX_VALUE_BYTES) {
+      sendJson(res, 400, { error: 'value too long (max 1024 bytes)' })
       return
     }
     await withClient(res, async (client) => {
@@ -59,6 +69,11 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
       sendJson(res, 400, { error: 'key must be a non-empty string' })
       return
     }
+
+    if (Buffer.byteLength(key) > MAX_KEY_BYTES) {
+      sendJson(res, 400, { error: 'key too long (max 128 bytes)' })
+      return
+    }
     await withClient(res, async (client) => {
       await client.delete(Buffer.from(key))
       sendJson(res, 200, { ok: true })
@@ -70,6 +85,10 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
     const key = url.searchParams.get('key')
     if (!key) {
       sendJson(res, 400, { error: 'missing key' })
+      return
+    }
+    if (Buffer.byteLength(key) > MAX_KEY_BYTES) {
+      sendJson(res, 400, { error: `key too long (max ${MAX_KEY_BYTES} bytes)` })
       return
     }
 
@@ -85,7 +104,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
   }
   if (req.method === 'GET' && (await serveStatic(res, url.pathname))) return
 
-  sendJson(res, 404, { error: 'not found' })
+  sendJson(res, 404, { error: 'no such route' })
 }
 
 const server = http.createServer((req, res) => {
