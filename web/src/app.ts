@@ -3,8 +3,9 @@ import { KVClient } from '../client'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-const STORE_HOST = '127.0.0.1'
-const STORE_PORT = 9000
+const STORE_HOST = process.env.STORE_HOST ?? '127.0.0.1'
+const STORE_PORT = Number(process.env.STORE_PORT ?? 9000)
+const PORT = Number(process.env.PORT ?? 3000)
 const MAX_BODY = 64 * 1024 // 64 KB
 const MAX_KEY_BYTES = 128
 const MAX_VALUE_BYTES = 1024
@@ -221,4 +222,4 @@ async function serveStatic(
   return true
 }
 
-server.listen(3000, () => console.log('listening on 3000'))
+server.listen(PORT, () => console.log(`listening on ${PORT}`))

@@ -2,9 +2,12 @@ from engine import Store
 from protocol import encode_response, STATUS_ERROR, STATUS_NOT_FOUND, STATUS_OK, CMD_DEL, CMD_GET, CMD_SET, read_message, decode_response, frame, decode_request
 import socket
 import threading
+import os
 
-DATA_DIR = "data"
-PORT = 9000
+HOST = os.environ.get("KV_HOST", "127.0.0.1")
+DATA_DIR = os.environ.get("KV_DATA_DIR", "data")   # keep whatever your default is now
+PORT = int(os.environ.get("KV_PORT", "9000"))
+
 def handle_request(store, command, key, value =b""):
     if command == CMD_SET:
         store.set(key, value)
@@ -45,7 +48,7 @@ def serve_connection(conn, store):
         conn.close()
 
 
-def create_listener(host="127.0.0.1", port=9000):
+def create_listener(host=HOST, port=PORT):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)   # IPv4, TCP
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # lets you restart quickly
     server.bind((host, port))
@@ -63,7 +66,7 @@ def accept_loop(listener, store):
 
 if __name__ == "__main__":
     store = Store(DATA_DIR)
-    listener = create_listener("127.0.0.1", PORT)
+    listener = create_listener(HOST, PORT)
     print(f"listening on port {listener.getsockname()[1]}")
     try:
         accept_loop(listener, store)
