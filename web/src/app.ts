@@ -28,8 +28,7 @@ async function readBody(req: http.IncomingMessage): Promise<Buffer> {
   }
   return Buffer.concat(chunks)
 }
-
-const server = http.createServer(async (req, res) => {
+async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://localhost')
 
   if (req.method === 'POST' && url.pathname === '/api/set') {
@@ -87,6 +86,17 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && (await serveStatic(res, url.pathname))) return
 
   sendJson(res, 404, { error: 'not found' })
+}
+
+const server = http.createServer((req, res) => {
+  handle(req, res).catch((err) => {
+    console.log(err)
+    if (res.headersSent) {
+      res.end()
+    } else {
+      sendJson(res, 500, { error: 'internal error' })
+    }
+  })
 })
 
 async function withClient(
