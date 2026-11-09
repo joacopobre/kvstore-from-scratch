@@ -1,0 +1,22 @@
+services:
+  store:
+    build:
+      context: .
+      dockerfile: Dockerfile.store
+    volumes:
+      - kvdata:/data
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    environment:
+      STORE_HOST: store
+      STORE_PORT: '9000'
+    ports:
+      - '3000:3000'
+    depends_on:
+      - store
+
+volumes:
+  kvdata:

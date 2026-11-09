@@ -1,0 +1,24 @@
+FROM node:22-slim
+WORKDIR /app
+
+# TODO 1: enable pnpm: RUN corepack enable
+RUN corepack enable
+
+# TODO 2: copy the three files pnpm needs to install dependencies, keeping the same layout:
+#   pnpm-workspace.yaml and pnpm-lock.yaml into ./ , and web/package.json into web/
+COPY pnpm-workspace.yaml pnpm-lock.yaml ./ 
+COPY web/package.json web/
+
+# TODO 3: install the dependencies: RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
+# TODO 4: copy the whole web/ folder into web/
+COPY web/ web/
+
+# TODO 5: WORKDIR /app/web, then build the site: RUN pnpm vite build
+WORKDIR /app/web
+RUN pnpm vite build
+# TODO 6: ENV PORT=3000, then the command that starts the app: CMD ["pnpm", "tsx", "src/app.ts"]
+
+ENV PORT=3000 
+
+CMD ["pnpm", "tsx", "src/app.ts"]
