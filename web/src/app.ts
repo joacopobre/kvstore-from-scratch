@@ -8,6 +8,9 @@ const STORE_PORT = 9000
 const MAX_BODY = 64 * 1024 // 64 KB
 const MAX_KEY_BYTES = 128
 const MAX_VALUE_BYTES = 1024
+const WINDOW_MS = 60_000 // 1 minute
+const MAX_REQUESTS = 60 // per IP per window
+const hits = new Map<string, { count: number; resetAt: number }>()
 
 function sendJson(
   res: http.ServerResponse,
@@ -32,6 +35,25 @@ async function readBody(req: http.IncomingMessage): Promise<Buffer> {
 }
 async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://localhost')
+
+  function rateLimited(ip: string): boolean {
+    const entry = hits.get(ip)
+    if (entry === undefined || Date.now() >= entry.resetAt) {
+      hits.set(ip, { count: 1, resetAt: Date.now() + WINDOW_MS })
+      return false
+    } else {
+      entry.count += 1
+      return entry.count > MAX_REQUESTS
+    }
+  }
+  if (url.pathname.startsWith('/api/')) {
+    const ip = req.socket.remoteAddress ?? 'unknown'
+    if (rateLimited(ip)) {
+      res.setHeader('Retry-After', '60')
+      sendJson(res, 429, { error: 'too many requests' })
+      return
+    }
+  }
 
   if (req.method === 'POST' && url.pathname === '/api/set') {
     const data = await readJson(req, res)
