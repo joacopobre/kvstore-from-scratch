@@ -36,6 +36,11 @@ async function readBody(req: http.IncomingMessage): Promise<Buffer> {
 }
 async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://localhost')
+  function clientIp(req: http.IncomingMessage): string {
+    const ip = req.headers['x-forwarded-for']
+    if (typeof ip === 'string') return ip.split(',')[0].trim()
+    return req.socket.remoteAddress ?? 'unknown'
+  }
 
   function rateLimited(ip: string): boolean {
     const entry = hits.get(ip)
@@ -48,7 +53,8 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
     }
   }
   if (url.pathname.startsWith('/api/')) {
-    const ip = req.socket.remoteAddress ?? 'unknown'
+    const ip = clientIp(req)
+    console.log('visitor ip:', ip)
     if (rateLimited(ip)) {
       res.setHeader('Retry-After', '60')
       sendJson(res, 429, { error: 'too many requests' })
@@ -183,7 +189,7 @@ async function readJson(
   return data
 }
 
-const DIST = path.resolve('dist') // run the app from inside web/
+const DIST = path.resolve('dist')
 const TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript',
@@ -205,15 +211,13 @@ async function serveStatic(
   if (!path.resolve(fullPath).startsWith(DIST + path.sep)) {
     return false
   }
-  // TODO 3: read the file with fs.readFile; if that fails (no such file), return false
+
   let buff
   try {
     buff = await fs.readFile(fullPath)
   } catch {
     return false
   }
-  // TODO 4: set Content-Type from the file's extension (path.extname + TYPES),
-  //   send the file's bytes, and return true
   res.setHeader(
     'Content-Type',
     TYPES[path.extname(fullPath)] ?? 'application/octet-stream'
