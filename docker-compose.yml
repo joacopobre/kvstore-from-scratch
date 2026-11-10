@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile.store
     volumes:
       - kvdata:/data
+    restart: unless-stopped
 
   web:
     build:
@@ -13,10 +14,26 @@ services:
     environment:
       STORE_HOST: store
       STORE_PORT: '9000'
-    ports:
-      - '3000:3000'
     depends_on:
       - store
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-http://localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
 
 volumes:
   kvdata:
+  caddy_data:
+  caddy_config:
