@@ -12,6 +12,8 @@ const MAX_VALUE_BYTES = 1024
 const WINDOW_MS = 60_000 // 1 minute
 const MAX_REQUESTS = 60 // per IP per window
 const hits = new Map<string, { count: number; resetAt: number }>()
+const GLOBAL_WRITES_PER_HOUR = 2000
+const budget = { count: 0, resetAt: Date.now() + 3_600_000 }
 
 function sendJson(
   res: http.ServerResponse,
@@ -34,6 +36,20 @@ async function readBody(req: http.IncomingMessage): Promise<Buffer> {
   }
   return Buffer.concat(chunks)
 }
+function writeBudgetExhausted(): boolean {
+  if (budget.resetAt < Date.now()) {
+    budget.count = 0
+    budget.resetAt = Date.now() + 3_600_000
+  }
+  budget.count += 1
+  return budget.count > GLOBAL_WRITES_PER_HOUR
+}
+function overBudget(res: http.ServerResponse): boolean {
+  if (!writeBudgetExhausted()) return false
+  sendJson(res, 503, { error: 'demo is at capacity, try again later' })
+  return true
+}
+
 async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://localhost')
   function clientIp(req: http.IncomingMessage): string {
@@ -82,6 +98,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
       sendJson(res, 400, { error: 'value too long (max 1024 bytes)' })
       return
     }
+    if (overBudget(res)) return
     await withClient(res, async (client) => {
       await client.set(Buffer.from(key), Buffer.from(value))
       sendJson(res, 200, { ok: true })
@@ -102,6 +119,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
       sendJson(res, 400, { error: 'key too long (max 128 bytes)' })
       return
     }
+    if (overBudget(res)) return
     await withClient(res, async (client) => {
       await client.delete(Buffer.from(key))
       sendJson(res, 200, { ok: true })
@@ -119,6 +137,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
       sendJson(res, 400, { error: `key too long (max ${MAX_KEY_BYTES} bytes)` })
       return
     }
+    if (overBudget(res)) return
 
     await withClient(res, async (client) => {
       const value = await client.get(Buffer.from(key))
