@@ -54,7 +54,6 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
   }
   if (url.pathname.startsWith('/api/')) {
     const ip = clientIp(req)
-    console.log('visitor ip:', ip)
     if (rateLimited(ip)) {
       res.setHeader('Retry-After', '60')
       sendJson(res, 429, { error: 'too many requests' })
