@@ -1,4 +1,9 @@
+import './style.css'
+import { renderNav, movePill } from './nav'
+import { initToc } from './toc'
 export {}
+
+renderNav()
 
 function el<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id)
@@ -18,9 +23,12 @@ function showPage() {
   if (!pages.includes(name)) {
     name = DEFAULT_PAGE
   }
-  for (const page of pages) {
-    el(page).hidden = page !== name
-  }
+  pages.forEach((p) => {
+    el(p).hidden = p !== name
+  })
+  movePill(name)
+  window.scrollTo({ top: 100, behavior: 'smooth' })
+  initToc(name)
 }
 
 window.addEventListener('hashchange', showPage)
