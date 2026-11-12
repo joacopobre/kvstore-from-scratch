@@ -85,7 +85,19 @@
             Run
           </button>
         </form>
-        <pre id="out" class="mt-6 rounded-xl bg-soft p-4 text-sm"></pre>
+        <div
+          id="result"
+          aria-live="polite"
+          class="mt-6 min-h-24 rounded-xl bg-soft p-4"
+        >
+          <p id="result-text">Run a command to see the result</p>
+          <details class="mt-3">
+            <summary class="cursor-pointer text-sm text-muted">
+              Raw response
+            </summary>
+            <pre id="result-raw" class="mt-2 overflow-x-auto text-xs"></pre>
+          </details>
+        </div>
       </div>
     </section>
 

@@ -8,11 +8,12 @@ const CONSOLE_NAV_HTML = `
       <button type="button" data-value="set" class="relative cursor-pointer px-5 py-2 text-sm font-medium">Set</button>
       <button type="button" data-value="get" class="relative cursor-pointer px-5 py-2 text-sm font-medium">Get</button>
       <button type="button" data-value="delete"   class="relative cursor-pointer px-5 py-2 text-sm font-medium">Delete</button>
-    </div>
-  </div>
-  
+      </div>
+      </div>
 `
 type ApiResult = { status: number; data: unknown }
+
+type Tone = 'ok' | 'warn' | 'error'
 
 let op = 'set'
 export function renderConsoleNav() {
@@ -68,11 +69,12 @@ async function run() {
   const keyText = key.value
   const value = el<HTMLInputElement>('value')
   const valueText = value.value
-  const out = el<HTMLElement>('out')
-  if (!key.value) {
-    out.textContent = 'Need a key to run the operation'
+
+  if (!keyText) {
+    showText('Need a key to run the operation')
     return
   }
+
   const method = op === 'get' ? 'GET' : 'POST'
 
   const path =
@@ -88,7 +90,8 @@ async function run() {
   }
 
   const result = await request(method, path, body)
-  out.textContent = JSON.stringify(result)
+
+  render(op, keyText, method, path, result)
 }
 
 async function request(
@@ -112,4 +115,73 @@ async function request(
     return { status: 0, data: { error: 'could not reach the server' } }
   }
   return { status: res.status, data }
+}
+
+function field(data: unknown, name: string): string | undefined {
+  if (typeof data !== 'object' || data === null) return undefined
+  const value = (data as Record<string, unknown>)[name]
+  return typeof value === 'string' ? value : undefined
+}
+
+function describe(
+  op: string,
+  key: string,
+  result: ApiResult
+): { text: string; tone: Tone } {
+  switch (result.status) {
+    case 200: {
+      let text
+      if (op === 'get') {
+        text = `Found: ${field(result.data, 'value') ?? '(no value)'}`
+      } else if (op === 'set') {
+        text = `Stored ${key}`
+      } else {
+        text = `Deleted ${key}`
+      }
+      return { text, tone: 'ok' }
+    }
+    case 404:
+      return { text: `Nothing stored under ${key}`, tone: 'warn' }
+    case 400:
+    case 413:
+      return {
+        text: field(result.data, 'error') ?? 'Invalid request',
+        tone: 'warn'
+      }
+    case 429:
+      return { text: 'Too many requests, try again later', tone: 'warn' }
+    case 503:
+      return { text: 'The demo is at capacity, try again later', tone: 'warn' }
+    case 502:
+      return { text: "Couldn't reach the store", tone: 'error' }
+    case 0:
+      return { text: 'Server is down', tone: 'error' }
+    default:
+      return { text: 'Something went wrong, try again later', tone: 'error' }
+  }
+}
+
+function render(
+  op: string,
+  key: string,
+  method: string,
+  path: string,
+  result: ApiResult
+) {
+  const message = el<HTMLElement>('result-text')
+  const raw = el<HTMLElement>('result-raw')
+  if (!raw || !message) return
+
+  const { text, tone } = describe(op, key, result)
+  message.textContent = text
+  raw.textContent = `${method} ${path} \nStatus: ${result.status} \n${JSON.stringify(result.data, null, 2)}`
+  // TODO tone indicator
+}
+
+function showText(text: string) {
+  const message = el<HTMLElement>('result-text')
+  const raw = el<HTMLElement>('result-raw')
+  if (!raw || !message) return
+  message.textContent = text
+  raw.textContent = ''
 }
