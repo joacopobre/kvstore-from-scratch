@@ -106,6 +106,7 @@ async function request(
   }
   let res
   let data: unknown = null
+  setBusy(true)
   try {
     res = await fetch(path, options)
     try {
@@ -113,7 +114,10 @@ async function request(
     } catch {} // not JSON: leave data as null
   } catch {
     return { status: 0, data: { error: 'could not reach the server' } }
+  } finally {
+    setBusy(false)
   }
+
   return { status: res.status, data }
 }
 
@@ -184,4 +188,10 @@ function showText(text: string) {
   if (!raw || !message) return
   message.textContent = text
   raw.textContent = ''
+}
+
+function setBusy(busy: boolean) {
+  const button = el<HTMLButtonElement>('run-button')
+  if (!button) return
+  button.disabled = busy
 }
