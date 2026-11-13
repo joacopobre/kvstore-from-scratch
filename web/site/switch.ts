@@ -7,7 +7,7 @@ export function setSwitch(bar: HTMLElement, value: string) {
   if (!match || !pill) return
 
   pill.style.width = `${match.offsetWidth}px`
-  pill.style.transform = `translateX(${match.offsetLeft - 4}px)`
+  pill.style.transform = `translateX(${match.offsetLeft}px)`
 
   for (const option of options) {
     const active = option.dataset.value === value

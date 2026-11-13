@@ -4,7 +4,7 @@ import { setSwitch } from './switch'
 const CONSOLE_NAV_HTML = `
   <div role="group">
     <div id="console-navbar" class="relative flex rounded-full bg-black/5 p-1 ">
-      <span data-pill class="absolute left-1 top-1 bottom-1 rounded-full bg-white shadow-sm
+      <span data-pill class="absolute left-0 top-1 bottom-1 rounded-full bg-white shadow-sm
                              transition-all duration-300 ease-out motion-reduce:transition-none"></span>
       <button type="button" data-value="set" class="relative cursor-pointer px-5 py-2 text-sm font-medium">Set</button>
       <button type="button" data-value="get" class="relative cursor-pointer px-5 py-2 text-sm font-medium">Get</button>
@@ -34,9 +34,11 @@ function selectOp(newOp: string) {
   setSwitch(bar, op)
 
   const needsValue = newOp === 'set'
+  const form = el<HTMLFormElement>('console-form')
   const wrapper = document.getElementById('value-wrapper')
   const inner = wrapper?.querySelector('#value-inner')
-  if (!inner || !wrapper) return
+  if (!inner || !wrapper || !form) return
+  form.dataset.op = newOp
 
   wrapper.classList.toggle('grid-rows-[1fr]', needsValue)
   wrapper.classList.toggle('grid-rows-[0fr]', !needsValue)
