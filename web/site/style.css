@@ -9,4 +9,8 @@
   --font-sans:
     -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial,
     sans-serif;
+
+  --color-ok: #2e9e6b;
+  --color-warn: #c98a1b;
+  --color-bad: #d14b4b;
 }

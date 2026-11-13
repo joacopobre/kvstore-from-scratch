@@ -1,3 +1,4 @@
+import { constants } from 'node:buffer'
 import { el } from './dom'
 import { setSwitch } from './switch'
 const CONSOLE_NAV_HTML = `
@@ -71,7 +72,7 @@ async function run() {
   const valueText = value.value
 
   if (!keyText) {
-    showText('Need a key to run the operation')
+    showText('Need a key to run the operation', 'warn')
     return
   }
 
@@ -172,21 +173,21 @@ function render(
   path: string,
   result: ApiResult
 ) {
-  const message = el<HTMLElement>('result-text')
   const raw = el<HTMLElement>('result-raw')
-  if (!raw || !message) return
+  if (!raw) return
 
   const { text, tone } = describe(op, key, result)
-  message.textContent = text
+  showText(text, tone)
   raw.textContent = `${method} ${path} \nStatus: ${result.status} \n${JSON.stringify(result.data, null, 2)}`
-  // TODO tone indicator
 }
 
-function showText(text: string) {
+function showText(text: string, tone: Tone) {
+  const container = el<HTMLElement>('result')
   const message = el<HTMLElement>('result-text')
   const raw = el<HTMLElement>('result-raw')
-  if (!raw || !message) return
+  if (!raw || !message || !container) return
   message.textContent = text
+  container.dataset.tone = tone
   raw.textContent = ''
 }
 
