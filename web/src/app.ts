@@ -1,7 +1,8 @@
 import http from 'node:http'
 import { KVClient } from '../client'
-import fs from 'node:fs/promises'
 import path from 'node:path'
+import { stat } from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
 
 const STORE_HOST = process.env.STORE_HOST ?? '127.0.0.1'
 const STORE_PORT = Number(process.env.STORE_PORT ?? 9000)
@@ -149,7 +150,8 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
     })
     return
   }
-  if (req.method === 'GET' && (await serveStatic(res, url.pathname))) return
+  if (req.method === 'GET' && (await serveStatic(req, res, url.pathname)))
+    return
 
   sendJson(res, 404, { error: 'no such route' })
 }
@@ -215,32 +217,86 @@ const TYPES: Record<string, string> = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.ico': 'image/x-icon',
-  '.json': 'application/json'
+  '.json': 'application/json',
+  '.mp4': 'video/mp4',
+  '.jpg': 'image/jpeg',
+  '.webp': 'image/webp'
+}
+
+function pipeFile(
+  res: http.ServerResponse,
+  fullPath: string,
+  start?: number,
+  end?: number
+) {
+  const stream = createReadStream(fullPath, { start, end })
+  stream.on('error', (err) => {
+    console.log(err)
+    res.destroy()
+  })
+  stream.pipe(res)
 }
 
 async function serveStatic(
+  req: http.IncomingMessage,
   res: http.ServerResponse,
   pathname: string
 ): Promise<boolean> {
-  if (pathname === '/') {
-    pathname = '/index.html'
-  }
+  if (pathname === '/') pathname = '/index.html'
   const fullPath = path.join(DIST, pathname)
-  if (!path.resolve(fullPath).startsWith(DIST + path.sep)) {
-    return false
-  }
+  if (!path.resolve(fullPath).startsWith(DIST + path.sep)) return false
 
-  let buff
+  let size: number
   try {
-    buff = await fs.readFile(fullPath)
+    const info = await stat(fullPath)
+    if (!info.isFile()) return false
+    size = info.size
   } catch {
     return false
   }
-  res.setHeader(
-    'Content-Type',
-    TYPES[path.extname(fullPath)] ?? 'application/octet-stream'
-  )
-  res.end(buff)
+
+  const type = TYPES[path.extname(fullPath)] ?? 'application/octet-stream'
+  const baseHeaders = { 'Content-Type': type, 'Accept-Ranges': 'bytes' }
+
+  const range = req.headers.range
+  if (!range) {
+    res.writeHead(200, { ...baseHeaders, 'Content-Length': size })
+    pipeFile(res, fullPath)
+    return true
+  }
+
+  const match = /^bytes=(\d*)-(\d*)$/.exec(range)
+  let start = NaN
+  let end = NaN
+  if (match) {
+    const [, startText, endText] = match
+    if (startText !== '') {
+      start = Number(startText)
+      end = endText === '' ? size - 1 : Number(endText)
+    } else if (endText !== '') {
+      start = Math.max(size - Number(endText), 0)
+      end = size - 1
+    }
+  }
+  end = Math.min(end, size - 1)
+
+  if (
+    Number.isNaN(start) ||
+    Number.isNaN(end) ||
+    start > end ||
+    start >= size
+  ) {
+    res.writeHead(416, { 'Content-Range': `bytes */${size}` })
+    res.end()
+    return true
+  }
+
+  res.writeHead(206, {
+    ...baseHeaders,
+    'Content-Range': `bytes ${start}-${end}/${size}`,
+    'Content-Length': end - start + 1
+  })
+  pipeFile(res, fullPath, start, end)
   return true
 }
 
