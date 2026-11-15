@@ -1,10 +1,10 @@
-   __pycache__/
-   *.pyc
-   .venv/
-   *.bin
-   dist/
-   .env
-   data/
-   node_modules/
-   claude/
-   agent/
+__pycache__/
+*.pyc
+.venv/
+*.bin
+dist/
+.env
+data/
+node_modules/
+claude/
+agent/
