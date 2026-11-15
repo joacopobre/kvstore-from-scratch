@@ -9,7 +9,7 @@ function buildToc(page: string) {
     link.textContent = heading.textContent
     link.dataset.target = heading.id
     link.className =
-      'block cursor-pointer py-1 text-sm text-muted transition-colors'
+      'toc-link text-muted transition-colors motion-reduce:transition-none'
     link.href = `#${heading.id}`
     link.addEventListener('click', (e) => {
       e.preventDefault()

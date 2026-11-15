@@ -17,7 +17,7 @@ function showPage() {
     el(p).hidden = p !== name
   })
   movePill(name)
-  window.scrollTo({ top: 100, behavior: 'smooth' })
+  window.scrollTo({ top: 0, behavior: 'instant' })
   initToc(name)
   if (name === 'console') syncConsoleSwitch()
 }

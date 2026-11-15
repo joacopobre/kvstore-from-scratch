@@ -1,16 +1,16 @@
-import { constants } from 'node:buffer'
+
 import { el } from './dom'
 import { setSwitch } from './switch'
 const CONSOLE_NAV_HTML = `
-  <div role="group">
-    <div id="console-navbar" class="relative flex rounded-full bg-black/5 p-1 ">
-      <span data-pill class="absolute left-0 top-1 bottom-1 rounded-full bg-white shadow-sm
-                             transition-all duration-300 ease-out motion-reduce:transition-none"></span>
-      <button type="button" data-value="set" class="relative cursor-pointer px-5 py-2 text-sm font-medium">Set</button>
-      <button type="button" data-value="get" class="relative cursor-pointer px-5 py-2 text-sm font-medium">Get</button>
-      <button type="button" data-value="delete"   class="relative cursor-pointer px-5 py-2 text-sm font-medium">Delete</button>
-      </div>
-      </div>
+  <div role="group" aria-label="Operation">
+    <div id="console-navbar" class="relative flex rounded-full border border-line bg-soft p-[3px]">
+      <span data-pill class="absolute left-0 top-[3px] bottom-[3px] rounded-full bg-paper shadow-[0_0_0_1px_rgb(0_0_0/0.05),0_1px_2px_rgb(0_0_0/0.08)]
+                             transition-[transform,width] duration-300 ease-out motion-reduce:transition-none"></span>
+      <button type="button" data-value="set" class="relative cursor-pointer rounded-full px-3 py-1 font-mono text-xs leading-4 text-muted transition-colors hover:text-ink motion-reduce:transition-none">Set</button>
+      <button type="button" data-value="get" class="relative cursor-pointer rounded-full px-3 py-1 font-mono text-xs leading-4 text-muted transition-colors hover:text-ink motion-reduce:transition-none">Get</button>
+      <button type="button" data-value="delete" class="relative cursor-pointer rounded-full px-3 py-1 font-mono text-xs leading-4 text-muted transition-colors hover:text-ink motion-reduce:transition-none">Delete</button>
+    </div>
+  </div>
 `
 type ApiResult = { status: number; data: unknown }
 

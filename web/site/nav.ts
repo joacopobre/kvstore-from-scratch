@@ -1,12 +1,12 @@
 import { setSwitch } from './switch'
 const NAV_HTML = `
-  <nav class="sticky top-4 z-10 mx-auto mt-4 w-fit">
-    <div id="navbar" class="relative flex rounded-full bg-black/5 p-1 backdrop-blur">
-      <span data-pill class="absolute left-0 top-1 bottom-1 rounded-full bg-white shadow-sm
-                             transition-all duration-300 ease-out motion-reduce:transition-none"></span>
-      <a href="#project" data-value="project" class="relative px-5 py-2 text-sm font-medium">Project</a>
-      <a href="#console" data-value="console" class="relative px-5 py-2 text-sm font-medium">Console</a>
-      <a href="#about"   data-value="about"   class="relative px-5 py-2 text-sm font-medium">About</a>
+  <nav aria-label="Pages">
+    <div id="navbar" class="relative flex rounded-full border border-line bg-paper/80 p-1 shadow-[0_1px_2px_rgb(0_0_0/0.04)] backdrop-blur-md">
+      <span data-pill class="absolute left-0 top-1 bottom-1 rounded-full bg-soft ring-1 ring-line
+                             transition-[transform,width] duration-300 ease-out motion-reduce:transition-none"></span>
+      <a href="#project" data-value="project" class="relative rounded-full px-4 py-1.5 text-[13px] leading-5 font-medium text-muted transition-colors hover:text-ink motion-reduce:transition-none">Project</a>
+      <a href="#console" data-value="console" class="relative rounded-full px-4 py-1.5 text-[13px] leading-5 font-medium text-muted transition-colors hover:text-ink motion-reduce:transition-none">Console</a>
+      <a href="#about"   data-value="about"   class="relative rounded-full px-4 py-1.5 text-[13px] leading-5 font-medium text-muted transition-colors hover:text-ink motion-reduce:transition-none">About</a>
     </div>
   </nav>
 `

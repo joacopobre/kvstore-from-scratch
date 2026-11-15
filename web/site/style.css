@@ -1,16 +1,617 @@
 @import 'tailwindcss';
 
+/* ------------------------------------------------------------------ tokens
+   Palette (a) "cream" is the default. Palette (b) "grey" is the override
+   block below: switch with <html data-palette="grey"> in index.html.      */
 @theme {
-  --color-ink: #1d1d1f;
-  --color-muted: #6e6e73;
-  --color-line: #d2d2d7;
-  --color-soft: #efeff2;
-  --color-accent: #0071e3;
+  --color-ink: #211f1b; /* text */
+  --color-muted: #6a645a; /* secondary text (>= 4.5:1 on paper and soft) */
+  --color-line: #e0d9ca; /* hairlines, input borders */
+  --color-soft: #f1ede3; /* page background (the dotted one) */
+  --color-paper: #fbf9f3; /* content card: solid, text sits here */
+  --color-dot: #cfc7b6; /* dot grid */
+  --color-mark: #a59c89; /* "+" corner markers */
+  --color-accent: #b0502c; /* the one accent */
+
+  --color-ok: #3f8a5f;
+  --color-warn: #b98218;
+  --color-bad: #c0483c;
+  --color-bad-ink: #9a3329; /* red that is readable as text */
+
+  /* media card backgrounds */
+  --color-tint-clay: #dcb39c;
+  --color-tint-sage: #bcc6ab;
+  --color-tint-slate: #b9c4cf;
+  --color-tint-oat: #e6dfd0;
+
   --font-sans:
     -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial,
     sans-serif;
+  --font-mono:
+    ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono',
+    monospace;
+}
 
-  --color-ok: #2e9e6b;
-  --color-warn: #c98a1b;
-  --color-bad: #d14b4b;
+:root[data-palette='grey'] {
+  --color-ink: #1b1b1d;
+  --color-muted: #66666b;
+  --color-line: #e1e1e4;
+  --color-soft: #f2f2f3;
+  --color-paper: #ffffff;
+  --color-dot: #cbcbd0;
+  --color-mark: #9a9aa1;
+  --color-tint-oat: #e4e4e7;
+}
+
+/* -------------------------------------------------------------------- base */
+@layer base {
+  /* Dot grid: one dot every 24px, anchored to the horizontal centre of the
+     page so that centred sheets (whose widths are multiples of 48px) have
+     their edges exactly on a column of dots. Rows sit at y = 12 + 24k. */
+  body {
+    background-color: var(--color-soft);
+    background-image: radial-gradient(
+      circle,
+      var(--color-dot) 1px,
+      transparent 1.5px
+    );
+    background-size: 24px 24px;
+    background-position: center top;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  }
+}
+
+/* ---------------------------------------------------------------- nav band
+   Same dotted background as the page (so it is invisible at the top of the
+   page), fading out along its bottom edge. Content scrolls under it instead
+   of under the floating nav bar. */
+.nav-band {
+  background-color: var(--color-soft);
+  background-image: radial-gradient(
+    circle,
+    var(--color-dot) 1px,
+    transparent 1.5px
+  );
+  background-size: 24px 24px;
+  background-position: center top;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 8px), transparent);
+  mask-image: linear-gradient(#000 calc(100% - 8px), transparent);
+}
+
+/* ------------------------------------------------------------------- sheet
+   The solid content card. Width snaps to a multiple of 48px so both edges
+   land on dots; the top edge is placed on a dot row by the page padding. */
+.sheet {
+  position: relative;
+  margin-inline: auto;
+  width: calc(100% - 2rem);
+  max-width: 1056px;
+  background: var(--color-paper);
+}
+.sheet-narrow {
+  max-width: 480px;
+}
+.sheet-mid {
+  max-width: 768px;
+}
+@supports (width: round(down, 100vw, 48px)) {
+  .sheet {
+    width: round(down, calc(100vw - 2rem), 48px);
+  }
+}
+
+/* "+" markers on the sheet corners (decorative) */
+.mark {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  pointer-events: none;
+}
+.mark::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(var(--color-mark), var(--color-mark)) center / 1px 100%
+      no-repeat,
+    linear-gradient(var(--color-mark), var(--color-mark)) center / 100% 1px
+      no-repeat;
+}
+.mark-tl {
+  top: -6px;
+  left: -6px;
+}
+.mark-tr {
+  top: -6px;
+  right: -6px;
+}
+.mark-bl {
+  bottom: -6px;
+  left: -6px;
+}
+.mark-br {
+  bottom: -6px;
+  right: -6px;
+}
+/* The sheet's height depends on its content, so the bottom corners are on a
+   dot column but not necessarily on a dot row. Hide the one dot that could
+   end up right next to the marker. */
+.mark-bl::before,
+.mark-br::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  height: 29px;
+  width: 3px;
+  background: var(--color-soft);
+}
+.mark-bl::before {
+  left: 3px;
+}
+.mark-br::before {
+  right: 3px;
+}
+
+/* --------------------------------------------------------------------- toc
+   Filled by toc.ts. Phone: a floating, horizontally scrolling bar under the
+   nav. Desktop (lg): a sticky list in the left column of the sheet. */
+.toc {
+  position: sticky;
+  top: 64px;
+  z-index: 10;
+  display: flex;
+  gap: 2px;
+  margin: 12px 12px 0;
+  padding: 3px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-paper) 88%, transparent);
+  backdrop-filter: blur(8px);
+}
+.toc::-webkit-scrollbar {
+  display: none;
+}
+.toc:empty {
+  display: none;
+}
+.toc-link {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.toc-link:hover {
+  color: var(--color-ink);
+}
+.toc-link.font-semibold {
+  background: var(--color-soft);
+}
+
+@media (min-width: 1024px) {
+  .toc {
+    top: 96px;
+    display: block;
+    align-self: start;
+    margin: 48px 0 0;
+    padding: 0 16px 0 36px;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    backdrop-filter: none;
+  }
+  .toc::before {
+    content: 'On this page';
+    display: block;
+    margin-bottom: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .toc-link {
+    display: block;
+    padding: 5px 0 5px 12px;
+    border-left: 1px solid var(--color-line);
+    border-radius: 0;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 18px;
+    white-space: normal;
+  }
+  .toc-link.font-semibold {
+    border-left-color: var(--color-ink);
+    background: none;
+  }
+}
+
+/* --------------------------------------------------------------------- doc
+   Typography for the content column of Project and About. Write plain
+   h2 / h3 / p / ul / pre / code / a inside .doc and it is styled. */
+.doc {
+  font-size: 15px;
+  line-height: 1.7;
+}
+.doc h1 {
+  font-size: 2rem;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.doc .lead {
+  margin-top: 0.75rem;
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--color-muted);
+}
+.doc h2 {
+  margin-top: 3.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-line);
+  font-size: 1.25rem;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.doc h3 {
+  margin-top: 2rem;
+  font-size: 15px;
+  font-weight: 600;
+}
+.doc p,
+.doc ul,
+.doc ol {
+  margin-top: 1rem;
+}
+.doc ul,
+.doc ol {
+  padding-left: 1.25rem;
+}
+.doc ul {
+  list-style: disc;
+}
+.doc ol {
+  list-style: decimal;
+}
+.doc li + li {
+  margin-top: 0.5rem;
+}
+.doc li::marker {
+  color: var(--color-muted);
+}
+.doc a:not(.btn) {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s;
+}
+.doc a:not(.btn):hover {
+  text-decoration-color: currentColor;
+}
+.doc code {
+  font-family: var(--font-mono);
+  font-size: 0.87em;
+}
+.doc :not(pre) > code {
+  padding: 0.1em 0.35em;
+  border: 1px solid var(--color-line);
+  border-radius: 4px;
+  background: var(--color-soft);
+}
+.doc pre {
+  margin-top: 1.25rem;
+  padding: 14px 16px;
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: var(--color-soft);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* Placeholder copy: delete the class when the real text goes in. */
+.ph {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+/* Small outlined button / link */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-ink);
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+.btn:hover {
+  border-color: var(--color-mark);
+  background: var(--color-soft);
+}
+.btn .arrow {
+  transition: transform 0.2s ease-out;
+}
+.btn:hover .arrow {
+  transform: translateX(3px);
+}
+
+/* -------------------------------------------------------------- media card
+   <figure class="media" data-tint="clay | sage | slate | oat | none">
+     <div class="media-stage"> img | video (+ img.media-still) | iframe </div>
+     <figcaption>optional</figcaption>
+   </figure>                                                               */
+.media {
+  margin-top: 1.75rem;
+}
+.media-stage {
+  padding: clamp(14px, 6%, 40px);
+  border-radius: 16px;
+  background: var(--color-tint-oat);
+}
+.media[data-tint='clay'] .media-stage {
+  background: var(--color-tint-clay);
+}
+.media[data-tint='sage'] .media-stage {
+  background: var(--color-tint-sage);
+}
+.media[data-tint='slate'] .media-stage {
+  background: var(--color-tint-slate);
+}
+.media-stage > :is(img, video, iframe) {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  background: var(--color-paper);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.06),
+    0 1px 2px rgb(0 0 0 / 0.05),
+    0 12px 28px -14px rgb(0 0 0 / 0.22);
+}
+.media-stage > iframe {
+  aspect-ratio: 16 / 10;
+  border: 0;
+}
+/* Videos: the still image replaces the video when motion is reduced. */
+.media-stage > .media-still {
+  display: none;
+}
+/* Empty slot (e.g. the system diagram): dashed outline, no tint. */
+.media[data-tint='none'] .media-stage {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  border: 1px dashed var(--color-mark);
+  background: none;
+}
+/* Full-bleed: for recordings that bring their own background. */
+.media[data-tint='bleed'] .media-stage {
+  padding: 0;
+  overflow: hidden;
+  background: var(--color-tint-oat);
+}
+.media[data-tint='bleed'] .media-stage > :is(img, video) {
+  border-radius: 0;
+  box-shadow: none;
+}
+.media figcaption {
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-muted);
+}
+
+/* ------------------------------------------------------------ flow diagram
+   <ol class="flow"> of boxes (<li><b>name</b><span>role</span></li>) joined
+   by <li class="flow-link">label</li>. A row on wide screens, a column on
+   phones. */
+.media[data-tint='none'] .media-stage:has(.flow) {
+  min-height: 0;
+  padding: 28px 16px;
+}
+.doc .flow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+}
+.doc .flow > li {
+  margin: 0;
+}
+.flow > li:not(.flow-link) {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 168px;
+  padding: 9px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: var(--color-soft);
+  text-align: center;
+}
+.flow b {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+.flow span {
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--color-muted);
+}
+/* connector: a hairline with an arrow head and the protocol as its label */
+.flow-link {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 40px;
+  padding-left: 62px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.flow-link::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  bottom: 5px;
+  left: 50%;
+  width: 1px;
+  background: var(--color-mark);
+}
+.flow-link::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-right: 1px solid var(--color-mark);
+  border-bottom: 1px solid var(--color-mark);
+  transform: translateX(-2.5px) rotate(45deg);
+}
+@media (min-width: 720px) {
+  .doc .flow {
+    flex-direction: row;
+    align-items: stretch;
+  }
+  .flow > li:not(.flow-link) {
+    flex: 1 1 0;
+    justify-content: center;
+    width: auto;
+    min-width: 0;
+    padding: 9px 4px;
+  }
+  .flow-link {
+    flex: none;
+    width: 46px;
+    height: auto;
+    padding: 0 0 22px;
+  }
+  .flow-link::before {
+    top: 50%;
+    bottom: auto;
+    left: 4px;
+    right: 5px;
+    width: auto;
+    height: 1px;
+  }
+  .flow-link::after {
+    top: 50%;
+    bottom: auto;
+    left: auto;
+    right: 5px;
+    transform: translateY(-2.5px) rotate(-45deg);
+  }
+}
+
+/* ----------------------------------------------------------------- console */
+/* Value field: the height collapse is the grid-rows transition toggled by
+   console.ts; this adds the "dial" tilt. `inert` is set together with it. */
+#value-wrapper {
+  perspective: 520px;
+}
+#value-inner {
+  transform-origin: 50% 0;
+}
+#value-wrapper[inert] > #value-inner {
+  transform: rotateX(-72deg) translateY(-4px);
+}
+
+/* Busy: the Run button is disabled while a request is in flight. */
+.run-spinner {
+  display: none;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+#run-button:disabled .run-spinner {
+  display: inline-block;
+}
+#console-form:has(#run-button:disabled) ~ #result .tone-dot {
+  border-color: transparent;
+  background: var(--color-mark);
+  animation: tone-pulse 0.9s ease-in-out infinite;
+}
+#console-form:has(#run-button:disabled) ~ #result #result-text {
+  opacity: 0.55;
+}
+@keyframes tone-pulse {
+  50% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+}
+
+/* Raw response disclosure */
+.raw > summary {
+  list-style: none;
+}
+.raw > summary::-webkit-details-marker {
+  display: none;
+}
+.raw > summary .chevron {
+  transition: transform 0.2s ease-out;
+}
+.raw[open] > summary .chevron {
+  transform: rotate(90deg);
+}
+#result-raw:empty::before {
+  content: 'No request sent';
+  color: var(--color-muted);
+}
+
+/* ----------------------------------------------------------- reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  #value-wrapper[inert] > #value-inner {
+    transform: none;
+  }
+  .run-spinner,
+  #console-form:has(#run-button:disabled) ~ #result .tone-dot {
+    animation: none;
+  }
+  .btn .arrow,
+  .raw > summary .chevron {
+    transition: none;
+  }
+  .media-stage > video {
+    display: none;
+  }
+  .media-stage > .media-still {
+    display: block;
+  }
 }

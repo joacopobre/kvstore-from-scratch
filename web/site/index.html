@@ -1,79 +1,455 @@
 <!doctype html>
+<!-- Palette: remove data-palette for warm cream (a), or set
+     data-palette="grey" for white / light grey (b). See style.css. -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>kvstore</title>
   </head>
-  <body class="bg-soft text-ink font-sans antialiased">
-    <div id="nav-root"></div>
+  <body
+    class="flex min-h-dvh flex-col font-sans text-ink antialiased [text-rendering:optimizeLegibility]"
+  >
+    <!-- A 64px band that hides content scrolling under the nav. The nav bar
+         itself sits 12px to 56px below the top of the viewport. -->
+    <div
+      id="nav-root"
+      class="nav-band sticky top-0 z-20 flex h-16 items-start justify-center pt-3"
+    ></div>
 
-    <section id="project" class="mx-auto max-w-6xl px-4 py-10">
-      <div class="grid gap-10 lg:grid-cols-[13rem_minmax(0,1fr)]">
-        <!-- left column: the table of contents (filled in by TS later) -->
-        <aside
-          data-toc
-          class="hidden lg:block sticky top-24 self-start"
-        ></aside>
+    <!-- ============================================================ PROJECT -->
+    <section id="project" class="w-full pt-[68px] pb-24">
+      <div class="sheet lg:grid lg:grid-cols-[216px_minmax(0,1fr)]">
+        <span class="mark mark-tl" aria-hidden="true"></span>
+        <span class="mark mark-tr" aria-hidden="true"></span>
+        <span class="mark mark-bl" aria-hidden="true"></span>
+        <span class="mark mark-br" aria-hidden="true"></span>
 
-        <!-- right column: the content -->
-        <div class="rounded-3xl bg-white p-8 md:p-12">
-          <h1 class="text-4xl font-semibold">kvstore</h1>
+        <!-- table of contents (filled in by toc.ts) -->
+        <aside data-toc class="toc" aria-label="On this page"></aside>
 
-          <h2 id="what-is-it" class="mt-12 scroll-mt-24 text-2xl font-semibold">
-            What is it
-          </h2>
+        <!-- content -->
+        <div class="px-6 pt-8 pb-12 sm:px-10 lg:pt-12 lg:pr-12 lg:pb-16 lg:pl-6">
+          <article class="doc max-w-[42rem]">
+            <h1>kvstore</h1>
 
-          <h2
-            id="how-it-works"
-            class="mt-12 scroll-mt-24 text-2xl font-semibold"
-          >
-            How it works
-          </h2>
-          <p class="mt-4 text-muted">Placeholder text...</p>
+            <h2 id="what-is-it" class="scroll-mt-24">What it is</h2>
+            <p>
+              kvstore is a key-value database that I wrote from scratch in
+              Python. You store a value under a key (SET), read it back (GET)
+              and remove it (DELETE), and the data survives crashes and
+              restarts.
+            </p>
+            <p>
+              I built it to understand how storage engines work underneath, so
+              the store uses only Python's standard library and no database
+              libraries (the tests use pytest). I focused on the parts that
+              make an engine trustworthy:
+            </p>
+            <ul>
+              <li>
+                <strong>Durability.</strong> Every write goes into a
+                write-ahead log on disk before it is acknowledged, so a write
+                the store has confirmed is not lost if the process dies.
+              </li>
+              <li>
+                <strong>Crash safety.</strong> The log is append-only, and a
+                record that was only half written when the machine went down
+                is detected when the store restarts and cut off the end of the
+                log.
+              </li>
+              <li>
+                <strong>Speed.</strong> Recent writes live in an in-memory
+                table, so reads are fast. When the table grows past a size
+                limit, it is flushed to sorted files on disk.
+              </li>
+              <li>
+                <strong>Tested against crashes.</strong> Tests kill a real
+                store process at chosen points in a flush and in a compaction,
+                then reopen the data and check that everything written before
+                the crash reads back correctly.
+              </li>
+            </ul>
+            <p>
+              Around the store there is a binary protocol over TCP that I
+              designed, a Python client, a TypeScript client, and a small Node
+              server that exposes the store over HTTP for this website. The
+              Console tab talks to the real database, so you can try it
+              yourself.
+            </p>
 
-          <h2 id="try-it" class="mt-12 scroll-mt-24 text-2xl font-semibold">
-            Try it
-          </h2>
-          <p class="mt-4 text-muted">Placeholder text...</p>
+            <h2 id="try-it" class="scroll-mt-24">Try it</h2>
+            <p>
+              Open the Console tab. Choose an operation, type a key (and a
+              value for SET) and press the button. The result appears
+              underneath in plain words, and "Raw response" shows exactly what
+              the server sent back.
+            </p>
+            <p>
+              A good first run: SET <code>name</code> with the value
+              <code>hello</code>, GET <code>name</code>, DELETE
+              <code>name</code>, then GET <code>name</code> again to see the
+              "not found" case.
+            </p>
+            <figure class="media" data-tint="bleed">
+              <div class="media-stage">
+                <video
+                  src="/media/demo-first-run.mp4"
+                  poster="/media/demo-first-run.jpg"
+                  width="1440"
+                  height="900"
+                  autoplay
+                  muted
+                  loop
+                  playsinline
+                  preload="metadata"
+                  aria-label="Screen recording of the console: set, get, delete, then get again"
+                ></video>
+                <!-- still frame, shown instead of the video when
+                     prefers-reduced-motion is set -->
+                <img
+                  class="media-still"
+                  src="/media/demo-first-run.jpg"
+                  width="1440"
+                  height="900"
+                  alt="The console after a GET, showing the value that was found"
+                />
+              </div>
+              <figcaption>
+                The first run above, recorded against the real store.
+              </figcaption>
+            </figure>
+            <p>
+              Some things to know. The demo data is shared by every visitor
+              and is wiped every day at 04:00 UTC, so please don't store
+              anything private. Keys can be up to 128 bytes and values up to
+              1,024 bytes, and each visitor is limited to 60 requests per
+              minute.
+            </p>
+            <p>
+              <a href="#console" class="btn">
+                Open the console
+                <span class="arrow" aria-hidden="true">→</span>
+              </a>
+            </p>
+
+            <h2 id="how-it-works" class="scroll-mt-24">
+              How a request travels
+            </h2>
+            <figure class="media" data-tint="none">
+              <div class="media-stage">
+                <ol class="flow" aria-label="Path of a request">
+                  <li><b>Browser</b><span>Console tab</span></li>
+                  <li class="flow-link" aria-hidden="true">HTTPS</li>
+                  <li><b>Caddy</b><span>reverse proxy</span></li>
+                  <li class="flow-link" aria-hidden="true">HTTP</li>
+                  <li><b>Node app</b><span>HTTP API</span></li>
+                  <li class="flow-link" aria-hidden="true">TCP</li>
+                  <li><b>Store</b><span>Python engine</span></li>
+                  <li class="flow-link" aria-hidden="true">fsync</li>
+                  <li><b>Disk</b><span>log, sorted files</span></li>
+                </ol>
+              </div>
+            </figure>
+            <p>Here is what happens when you run a SET:</p>
+            <ol>
+              <li>
+                <strong>The browser</strong> sends
+                <code>POST /api/set</code> with the key and the value as JSON.
+              </li>
+              <li>
+                <strong>Caddy</strong>, the reverse proxy, ends the HTTPS
+                connection (using a certificate from Let's Encrypt) and passes
+                the request to the Node app over a private network. It is the
+                only part of the system that can be reached from the internet.
+              </li>
+              <li>
+                <strong>The Node app</strong> checks the request (key, value
+                and body sizes) and applies the rate limits. Then it opens a
+                TCP connection to the store and sends one binary message,
+                using my TypeScript client.
+              </li>
+              <li>
+                <strong>The store</strong> reads the message, appends the
+                record to its write-ahead log, waits for it to reach the disk,
+                updates the in-memory table and replies with a status byte.
+              </li>
+              <li>
+                <strong>The Node app</strong> turns the status byte into an
+                HTTP status and a JSON body, and the Console shows the
+                friendly message and the raw response.
+              </li>
+            </ol>
+            <p>
+              A GET follows the same path: the store looks the key up and the
+              value comes back in the response.
+            </p>
+            <figure class="media" data-tint="bleed">
+              <div class="media-stage">
+                <video
+                  src="/media/demo-raw-response.mp4"
+                  poster="/media/demo-raw-response.jpg"
+                  width="1440"
+                  height="900"
+                  autoplay
+                  muted
+                  loop
+                  playsinline
+                  preload="metadata"
+                  aria-label="Screen recording of the console with the raw response open"
+                ></video>
+                <img
+                  class="media-still"
+                  src="/media/demo-raw-response.jpg"
+                  width="1440"
+                  height="900"
+                  alt="The console with the raw response open, showing the request line, the status and the JSON body"
+                />
+              </div>
+              <figcaption>
+                "Raw response" shows the request line, the HTTP status and the
+                JSON body for each operation.
+              </figcaption>
+            </figure>
+
+            <h2 id="storage-engine" class="scroll-mt-24">The storage engine</h2>
+            <p>
+              <strong>Writing.</strong> Each SET or DELETE is first appended
+              to the write-ahead log, a file that is only ever added to. The
+              store waits until the operating system confirms the bytes are on
+              disk (<code>fsync</code>) before it replies, and that wait is
+              what makes an acknowledged write durable. It happens on every
+              write, one at a time, with no batching.
+            </p>
+            <p>
+              <strong>Surviving a crash.</strong> Each record in the log
+              starts with its length, so the store can tell a complete record
+              from one that was cut short. On startup the engine replays the
+              log to rebuild what was in memory. It stops at the first
+              incomplete record and cuts the log off at that point. There are
+              no checksums, so this catches a record that was cut short, but
+              not one whose bytes were damaged.
+            </p>
+            <figure class="media" data-tint="bleed">
+              <div class="media-stage">
+                <video
+                  src="/media/demo-restart.mp4"
+                  poster="/media/demo-restart.jpg"
+                  width="1440"
+                  height="900"
+                  autoplay
+                  muted
+                  loop
+                  playsinline
+                  preload="metadata"
+                  aria-label="Screen recording of the console: a value is set, the store is killed and restarted, and the value is read back"
+                ></video>
+                <img
+                  class="media-still"
+                  src="/media/demo-restart.jpg"
+                  width="1440"
+                  height="900"
+                  alt="The console showing the value found again after the store was restarted"
+                />
+              </div>
+              <figcaption>
+                After the SET, the store process is killed and started again.
+                The first GET fails while it is down, and the second finds the
+                value, rebuilt from the log.
+              </figcaption>
+            </figure>
+            <p>
+              <strong>Memory and disk.</strong> The in-memory table (the
+              memtable) holds the latest value for each key. When it passes a
+              size limit (4 MB by default), it is written out as an immutable
+              sorted file (an SSTable). The file is written under a temporary
+              name, synced to disk and renamed into place, and only then is
+              the log deleted. Reads check the memtable first, then the sorted
+              files from newest to oldest, because a newer value hides an
+              older one.
+            </p>
+            <p>
+              <strong>Deletes.</strong> A delete is recorded as a marker
+              called a tombstone, first in the log and the memtable and later
+              in the sorted files. A read stops at the first place that
+              mentions the key, so a tombstone hides any older value under it.
+            </p>
+            <p>
+              <strong>Compaction.</strong> Over time sorted files pile up.
+              When there are four of them, the engine merges them all into one
+              new file, keeping only the newest value for each key and
+              dropping deleted keys. Then it deletes the old files, oldest
+              first, so that a crash part-way through cannot bring a deleted
+              key back.
+            </p>
+            <p>
+              <strong>Testing.</strong> The worst bugs in a storage engine
+              happen when the process dies at the wrong moment, so the tests
+              inject crashes at those moments: after writes that have not been
+              flushed yet, at three points in a flush (before the new file is
+              renamed into place, after the rename, and after the log is
+              deleted) and at four points in a compaction (after the merged
+              file is written, and after each of the three old files is
+              deleted). Each test kills a real child process at that point,
+              reopens the store and checks that the data written before the
+              crash reads back correctly. That is eight crash points in total.
+            </p>
+
+            <h2 id="wire-protocol" class="scroll-mt-24">The wire protocol</h2>
+            <p>
+              Programs talk to the store over TCP with a small binary protocol
+              that I designed. TCP delivers a stream of bytes with no message
+              boundaries, so every message starts with its length:
+            </p>
+            <pre><code>frame     [4 bytes: payload length, big-endian] [payload]
+request   [1 byte: command] [4 bytes: key length] [key] [value]
+response  [1 byte: status] [body]</code></pre>
+            <p>
+              The commands are SET, GET and DELETE, and the statuses are OK,
+              NOT_FOUND and ERROR. The server rejects messages over 16 MB, so
+              a bad length can't make it buffer unlimited data.
+            </p>
+            <p>
+              A message can arrive split across several network chunks, or
+              several messages can arrive in one chunk. So the clients keep
+              incoming bytes in a buffer and decode only when a whole frame is
+              there. The TypeScript client does this with a small byte queue
+              and a socket reader that hands out exactly the number of bytes
+              asked for.
+            </p>
+
+            <h2 id="deployment" class="scroll-mt-24">Deployment</h2>
+            <p>
+              The site runs on a single Linux server (a DigitalOcean VPS) with
+              Docker Compose. There are three containers: the store, the Node
+              app and Caddy. Only Caddy publishes ports (80 and 443). The
+              store and the Node app can be reached only inside Compose's
+              private network. The store's data lives in a named volume, so it
+              survives container restarts and reboots, and the containers
+              restart on their own. I tested that by rebooting the server.
+            </p>
+            <p>
+              The server is locked down: a non-root user, SSH keys only (no
+              passwords and no root login), and a firewall that lets only SSH,
+              HTTP and HTTPS in from outside. Caddy gets and renews the HTTPS
+              certificate automatically.
+            </p>
+            <p>
+              Because anyone can write to the demo, I limited what it can be
+              used for: size limits on keys, values and request bodies; a rate
+              limit per visitor (60 requests a minute); a global budget (2,000
+              requests to the store an hour) after which the demo says it is
+              at capacity; and a scheduled job that wipes all the data every
+              day at 04:00 UTC.
+            </p>
+
+            <h2 id="limitations" class="scroll-mt-24">Limitations</h2>
+            <ul>
+              <li>
+                The store has no authentication. It is meant to run on a
+                private network, and in this deployment only the Node app can
+                reach it.
+              </li>
+              <li>
+                The rate limit and the request budget are kept in the Node
+                app's memory, so they reset when it restarts.
+              </li>
+              <li>
+                The demo data is shared between all visitors and wiped daily.
+              </li>
+              <li>
+                The Console sends and shows text only, while the protocol
+                itself carries raw bytes.
+              </li>
+              <li>
+                It is a single node with no replication, so if the server's
+                disk is lost, so is the data.
+              </li>
+              <li>
+                The engine uses one lock for everything, so it handles one
+                operation at a time, and a flush or a compaction makes every
+                client wait.
+              </li>
+            </ul>
+
+            <h2 id="source-code" class="scroll-mt-24">Source code</h2>
+            <p>
+              The code is on GitHub:
+              <a href="https://github.com/joacopobre/kvstore-from-scratch"
+                >github.com/joacopobre/kvstore-from-scratch</a
+              >.
+            </p>
+            <p>
+              To run it locally with Docker, use
+              <code>docker compose up --build</code> and open
+              http://localhost. The store's tests run with
+              <code>pytest</code>.
+            </p>
+            <p>
+              How this was built: I wrote the storage engine, the protocol and
+              both clients myself, working through each piece step by step
+              with an AI assistant that explained the concepts and reviewed my
+              code. The visual design of the site and the text on this page
+              were produced with AI assistance and checked by me.
+            </p>
+          </article>
         </div>
       </div>
     </section>
 
-    <section id="console" class="mx-auto max-w-4xl px-4 py-10">
-      <div class="rounded-3xl bg-white p-8 md:p-12">
-        <div class="flex justify-between">
-          <h1 class="text-3xl font-semibold">Console</h1>
+    <!-- ============================================================ CONSOLE -->
+    <section id="console" class="w-full pt-[68px] pb-24">
+      <div class="sheet sheet-narrow">
+        <span class="mark mark-tl" aria-hidden="true"></span>
+        <span class="mark mark-tr" aria-hidden="true"></span>
+        <span class="mark mark-bl" aria-hidden="true"></span>
+        <span class="mark mark-br" aria-hidden="true"></span>
+
+        <header
+          class="flex items-center justify-between gap-4 border-b border-line py-3 pr-3 pl-5"
+        >
+          <h1 class="text-[15px] font-semibold tracking-tight">Console</h1>
           <div id="console-nav">
-            <!-- nav here -->
+            <!-- operation switch, rendered by console.ts -->
           </div>
-        </div>
-        <form class="max-w-sm mt-8" id="console-form" data-op="set">
-          <label for="key" class="block text-sm font-medium text-muted"
+        </header>
+
+        <form id="console-form" data-op="set" class="group px-5 pt-5">
+          <label
+            for="key"
+            class="block font-mono text-[11px] tracking-[0.08em] text-muted uppercase"
             >Key:</label
           >
           <input
             id="key"
             placeholder='"name"'
-            class="mt-1 w-full rounded-xl border border-line p-3"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            class="mt-1.5 h-10 w-full rounded-md border border-line bg-paper px-3 font-mono text-[13px] transition-[border-color,box-shadow] duration-150 outline-none placeholder:text-muted/60 hover:border-mark focus:border-ink focus:ring-3 focus:ring-ink/10 motion-reduce:transition-none"
           />
           <div
             id="value-wrapper"
-            class="grid transition-[grid-template-rows] duration-300 motion-reduce:transition-none grid-rows-[1fr]"
+            class="grid grid-rows-[1fr] transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none"
           >
+            <!-- -mx-1 px-1 pb-1 leave room for the focus ring inside the
+                 overflow-hidden box -->
             <div
               id="value-inner"
-              class="min-h-0 overflow-hidden transition-opacity duration-300 motion-reduce:transition-none"
+              class="-mx-1 min-h-0 overflow-hidden px-1 pb-1 transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none"
             >
               <label
                 for="value"
-                class="block mt-3 text-sm font-medium text-muted"
+                class="mt-4 block font-mono text-[11px] tracking-[0.08em] text-muted uppercase"
                 >Value:</label
               >
               <input
                 id="value"
                 placeholder='"joaquin"'
-                class="mt-1 w-full rounded-xl border border-line p-3"
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck="false"
+                class="mt-1.5 h-10 w-full rounded-md border border-line bg-paper px-3 font-mono text-[13px] transition-[border-color,box-shadow] duration-150 outline-none placeholder:text-muted/60 hover:border-mark focus:border-ink focus:ring-3 focus:ring-ink/10 motion-reduce:transition-none"
               />
             </div>
           </div>
@@ -81,33 +457,214 @@
           <button
             id="run-button"
             type="submit"
-            class="mt-6 bg-accent cursor-pointer text-white font-semibold py-2.5 px-8 rounded-full disabled:opacity-60 disabled:cursor-not-allowed"
+            class="mt-4 flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-transparent text-[13px] font-medium transition-[background-color,border-color,color,filter] duration-200 hover:brightness-95 active:brightness-90 disabled:cursor-progress disabled:opacity-60 disabled:hover:brightness-100 motion-reduce:transition-none group-data-[op=delete]:border-bad/30 group-data-[op=delete]:bg-bad/10 group-data-[op=delete]:text-bad-ink group-data-[op=get]:bg-ink group-data-[op=get]:text-paper group-data-[op=set]:bg-accent group-data-[op=set]:text-white"
           >
-            Run
+            <span class="run-spinner" aria-hidden="true"></span>
+            <span class="hidden group-data-[op=set]:inline">Set value</span>
+            <span class="hidden group-data-[op=get]:inline">Get value</span>
+            <span class="hidden group-data-[op=delete]:inline">Delete key</span>
           </button>
         </form>
+
         <div
           id="result"
           aria-live="polite"
-          class="mt-6 min-h-24 rounded-xl bg-soft p-4 group"
+          class="group mx-5 mt-5 mb-5 rounded-md border border-line bg-soft/60 px-3.5 py-3"
         >
-          <div class="flex items-center">
+          <div class="flex items-start gap-2.5">
             <span
-              class="mr-1.5 inline-block h-2.5 w-2.5 rounded-full bg-line group-data-[tone=ok]:bg-ok group-data-[tone=warn]:bg-warn group-data-[tone=error]:bg-bad"
+              class="tone-dot mt-[7px] h-2 w-2 shrink-0 rounded-full border border-mark transition-colors duration-200 motion-reduce:transition-none group-data-[tone]:border-transparent group-data-[tone=error]:bg-bad group-data-[tone=ok]:bg-ok group-data-[tone=warn]:bg-warn"
             ></span>
-            <p id="result-text">Run a command to see the result</p>
+            <p
+              id="result-text"
+              class="min-w-0 text-sm leading-[22px] break-words text-muted transition-opacity duration-150 group-data-[tone]:text-ink motion-reduce:transition-none"
+            >
+              Run a command to see the result
+            </p>
           </div>
-          <details class="mt-3">
-            <summary class="cursor-pointer text-sm text-muted">
+          <details class="raw mt-2.5 border-t border-line pt-2.5">
+            <summary
+              class="flex w-fit cursor-pointer items-center gap-1.5 rounded-sm font-mono text-[11px] tracking-[0.08em] text-muted uppercase transition-colors select-none hover:text-ink motion-reduce:transition-none"
+            >
+              <svg
+                class="chevron h-2.5 w-2.5"
+                viewBox="0 0 10 10"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                aria-hidden="true"
+              >
+                <path d="M3.5 1.5 7 5 3.5 8.5" />
+              </svg>
               Raw response
             </summary>
-            <pre id="result-raw" class="mt-2 overflow-x-auto text-xs"></pre>
+            <pre
+              id="result-raw"
+              class="mt-2 overflow-x-auto rounded-sm border border-line bg-paper px-3 py-2.5 font-mono text-xs leading-5"
+            ></pre>
           </details>
+        </div>
+
+        <p class="border-t border-line px-5 py-3 text-xs leading-5 text-muted">
+          The demo data is shared by every visitor and is wiped every day at
+          04:00 UTC, so please don't store anything private.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================================== ABOUT -->
+    <section id="about" class="w-full pt-[68px] pb-24">
+      <div class="sheet sheet-mid">
+        <span class="mark mark-tl" aria-hidden="true"></span>
+        <span class="mark mark-tr" aria-hidden="true"></span>
+        <span class="mark mark-bl" aria-hidden="true"></span>
+        <span class="mark mark-br" aria-hidden="true"></span>
+
+        <div class="px-6 pt-8 pb-12 sm:px-12 sm:pt-12 sm:pb-16">
+          <article class="doc max-w-[42rem]">
+            <header class="flex items-center gap-5 sm:gap-7">
+              <img
+                src="/avatar.jpg"
+                width="320"
+                height="320"
+                alt="Joaquin Rodes"
+                class="h-28 w-28 shrink-0 rounded-2xl object-cover sm:h-32 sm:w-32"
+              />
+              <div class="min-w-0">
+                <h1>Joaquin Rodes</h1>
+              </div>
+            </header>
+
+            <h2 id="background" class="scroll-mt-24">Background</h2>
+            <p>
+              I'm Joaquin Rodes, a computer science graduate based in Salford,
+              UK. I have a BSc in Computer Science with First Class Honours
+              from the University of Salford (2026). I'm looking for a junior
+              full-stack or AI-related role.
+            </p>
+            <p>
+              I like to understand how things work underneath, so instead of
+              only using a database, I wrote one. The same goes for the rest
+              of this project: I wrote the clients and the web server, and I
+              deployed and secured the server it runs on.
+            </p>
+            <p>
+              My other projects are on GitHub, in TypeScript (a Next.js and
+              PostgreSQL app) and Python (a FastAPI project on
+              retrieval-augmented generation).
+            </p>
+            <ul>
+              <li>
+                <a href="https://github.com/joacopobre/FYProject-Budgetly"
+                  >Budgetly</a
+                >: a personal finance app built with Next.js, TypeScript and
+                PostgreSQL, live at
+                <a href="https://budgetly.uk/">budgetly.uk</a>. It was my
+                final year project.
+              </li>
+              <li>
+                <a href="https://github.com/joacopobre/notes-api">notes-api</a
+                >: a FastAPI and PostgreSQL backend that uses the Claude API,
+                with a RAG pipeline over notes using pgvector.
+              </li>
+              <li>
+                <a href="https://github.com/joacopobre/job-scout-agent"
+                  >job-scout-agent</a
+                >: an n8n workflow that reads job listings from RSS feeds and
+                filters them with the Claude API.
+              </li>
+            </ul>
+
+            <h2 id="skills" class="scroll-mt-24">Skills</h2>
+            <ul>
+              <li><strong>Languages:</strong> TypeScript, Python</li>
+              <li>
+                <strong>Backend:</strong> Node.js, NestJS, FastAPI, PostgreSQL
+              </li>
+              <li><strong>Frontend:</strong> Next.js, Tailwind CSS</li>
+              <li>
+                <strong>Infrastructure:</strong> Docker and Docker Compose, a
+                reverse proxy with automatic HTTPS (Caddy), deploying and
+                securing a Linux server
+              </li>
+              <li>
+                <strong>AI:</strong> retrieval-augmented generation (RAG)
+              </li>
+            </ul>
+
+            <h2 id="contact" class="scroll-mt-24">Contact</h2>
+            <dl class="mt-4 border-t border-line text-sm">
+              <div class="flex gap-4 border-b border-line py-2.5">
+                <dt
+                  class="w-20 shrink-0 pt-0.5 font-mono text-[11px] tracking-[0.08em] text-muted uppercase"
+                >
+                  GitHub
+                </dt>
+                <dd class="min-w-0 break-words">
+                  <a href="https://github.com/joacopobre"
+                    >github.com/joacopobre</a
+                  >
+                </dd>
+              </div>
+              <div class="flex gap-4 border-b border-line py-2.5">
+                <dt
+                  class="w-20 shrink-0 pt-0.5 font-mono text-[11px] tracking-[0.08em] text-muted uppercase"
+                >
+                  Email
+                </dt>
+                <dd class="min-w-0 break-words">
+                  <a href="mailto:joacorodes2004@gmail.com"
+                    >joacorodes2004@gmail.com</a
+                  >
+                </dd>
+              </div>
+              <div class="flex gap-4 border-b border-line py-2.5">
+                <dt
+                  class="w-20 shrink-0 pt-0.5 font-mono text-[11px] tracking-[0.08em] text-muted uppercase"
+                >
+                  LinkedIn
+                </dt>
+                <dd class="min-w-0 break-words">
+                  <a href="https://linkedin.com/in/joacorodes"
+                    >linkedin.com/in/joacorodes</a
+                  >
+                </dd>
+              </div>
+            </dl>
+          </article>
         </div>
       </div>
     </section>
 
-    <section id="about" class="mx-auto max-w-6xl px-4 py-10"></section>
+    <!-- ============================================================= FOOTER -->
+    <footer class="mt-auto border-t border-line bg-paper">
+      <div
+        class="mx-auto flex w-[calc(100%-2rem)] max-w-[1056px] flex-col gap-3 py-7 text-[13px] sm:flex-row sm:items-center sm:justify-between"
+      >
+        <p class="flex items-center gap-2.5">
+          <span class="font-mono text-ink">kvstore</span>
+          <span class="h-3 w-px bg-line" aria-hidden="true"></span>
+          <span class="text-muted">Joaquin Rodes</span>
+        </p>
+        <p class="text-muted sm:order-last">Demo data is wiped every day at 04:00 UTC.</p>
+        <ul class="flex gap-5 font-mono text-xs text-muted">
+          <li>
+            <a
+              href="https://github.com/joacopobre"
+              class="rounded-sm underline decoration-line underline-offset-4 transition-colors hover:text-ink hover:decoration-mark motion-reduce:transition-none"
+              >GitHub</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://github.com/joacopobre/kvstore-from-scratch"
+              class="rounded-sm underline decoration-line underline-offset-4 transition-colors hover:text-ink hover:decoration-mark motion-reduce:transition-none"
+              >Source</a
+            >
+          </li>
+        </ul>
+      </div>
+    </footer>
 
     <script type="module" src="/main.ts"></script>
   </body>
