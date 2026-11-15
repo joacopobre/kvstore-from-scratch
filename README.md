@@ -2,11 +2,21 @@
 
 **Live demo: https://kvstore.joaquinrodes.dev** (the Console tab talks to the real database)
 
+![The kvstore console: SET, GET, DELETE, then GET again returns "not found"](docs/demo.gif)
+
 A key-value storage engine built from first principles in Python — no database
 libraries, no ORMs. The goal isn't to reinvent Postgres for its own sake, but
 to genuinely understand what's happening underneath one: durability, on-disk
 data structures, crash recovery, and concurrency correctness, rather than
 just consuming those guarantees through a driver.
+
+## Screenshots
+
+| Project                              | Console                                                                          |
+| ------------------------------------ | -------------------------------------------------------------------------------- |
+| ![The Project tab](docs/project.png) | ![The Console showing a GET result with the raw response open](docs/console.png) |
+
+![The wire protocol section](docs/protocol.png)
 
 ## Why this project
 
