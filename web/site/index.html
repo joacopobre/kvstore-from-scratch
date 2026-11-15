@@ -29,7 +29,9 @@
         <aside data-toc class="toc" aria-label="On this page"></aside>
 
         <!-- content -->
-        <div class="px-6 pt-8 pb-12 sm:px-10 lg:pt-12 lg:pr-12 lg:pb-16 lg:pl-6">
+        <div
+          class="px-6 pt-8 pb-12 sm:px-10 lg:pt-12 lg:pr-12 lg:pb-16 lg:pl-6"
+        >
           <article class="doc max-w-[42rem]">
             <h1>kvstore</h1>
 
@@ -43,20 +45,19 @@
             <p>
               I built it to understand how storage engines work underneath, so
               the store uses only Python's standard library and no database
-              libraries (the tests use pytest). I focused on the parts that
-              make an engine trustworthy:
+              libraries (the tests use pytest). I focused on the parts that make
+              an engine trustworthy:
             </p>
             <ul>
               <li>
-                <strong>Durability.</strong> Every write goes into a
-                write-ahead log on disk before it is acknowledged, so a write
-                the store has confirmed is not lost if the process dies.
+                <strong>Durability.</strong> Every write goes into a write-ahead
+                log on disk before it is acknowledged, so a write the store has
+                confirmed is not lost if the process dies.
               </li>
               <li>
                 <strong>Crash safety.</strong> The log is append-only, and a
-                record that was only half written when the machine went down
-                is detected when the store restarts and cut off the end of the
-                log.
+                record that was only half written when the machine went down is
+                detected when the store restarts and cut off the end of the log.
               </li>
               <li>
                 <strong>Speed.</strong> Recent writes live in an in-memory
@@ -64,10 +65,10 @@
                 limit, it is flushed to sorted files on disk.
               </li>
               <li>
-                <strong>Tested against crashes.</strong> Tests kill a real
-                store process at chosen points in a flush and in a compaction,
-                then reopen the data and check that everything written before
-                the crash reads back correctly.
+                <strong>Tested against crashes.</strong> Tests kill a real store
+                process at chosen points in a flush and in a compaction, then
+                reopen the data and check that everything written before the
+                crash reads back correctly.
               </li>
             </ul>
             <p>
@@ -80,10 +81,10 @@
 
             <h2 id="try-it" class="scroll-mt-24">Try it</h2>
             <p>
-              Open the Console tab. Choose an operation, type a key (and a
-              value for SET) and press the button. The result appears
-              underneath in plain words, and "Raw response" shows exactly what
-              the server sent back.
+              Open the Console tab. Choose an operation, type a key (and a value
+              for SET) and press the button. The result appears underneath in
+              plain words, and "Raw response" shows exactly what the server sent
+              back.
             </p>
             <p>
               A good first run: SET <code>name</code> with the value
@@ -120,11 +121,10 @@
               </figcaption>
             </figure>
             <p>
-              Some things to know. The demo data is shared by every visitor
-              and is wiped every day at 04:00 UTC, so please don't store
-              anything private. Keys can be up to 128 bytes and values up to
-              1,024 bytes, and each visitor is limited to 60 requests per
-              minute.
+              Some things to know. The demo data is shared by every visitor and
+              is wiped every day at 04:00 UTC, so please don't store anything
+              private. Keys can be up to 128 bytes and values up to 1,024 bytes,
+              and each visitor is limited to 60 requests per minute.
             </p>
             <p>
               <a href="#console" class="btn">
@@ -164,20 +164,20 @@
                 only part of the system that can be reached from the internet.
               </li>
               <li>
-                <strong>The Node app</strong> checks the request (key, value
-                and body sizes) and applies the rate limits. Then it opens a
-                TCP connection to the store and sends one binary message,
-                using my TypeScript client.
+                <strong>The Node app</strong> checks the request (key, value and
+                body sizes) and applies the rate limits. Then it opens a TCP
+                connection to the store and sends one binary message, using my
+                TypeScript client.
               </li>
               <li>
-                <strong>The store</strong> reads the message, appends the
-                record to its write-ahead log, waits for it to reach the disk,
-                updates the in-memory table and replies with a status byte.
+                <strong>The store</strong> reads the message, appends the record
+                to its write-ahead log, waits for it to reach the disk, updates
+                the in-memory table and replies with a status byte.
               </li>
               <li>
-                <strong>The Node app</strong> turns the status byte into an
-                HTTP status and a JSON body, and the Console shows the
-                friendly message and the raw response.
+                <strong>The Node app</strong> turns the status byte into an HTTP
+                status and a JSON body, and the Console shows the friendly
+                message and the raw response.
               </li>
             </ol>
             <p>
@@ -214,21 +214,21 @@
 
             <h2 id="storage-engine" class="scroll-mt-24">The storage engine</h2>
             <p>
-              <strong>Writing.</strong> Each SET or DELETE is first appended
-              to the write-ahead log, a file that is only ever added to. The
-              store waits until the operating system confirms the bytes are on
-              disk (<code>fsync</code>) before it replies, and that wait is
-              what makes an acknowledged write durable. It happens on every
-              write, one at a time, with no batching.
+              <strong>Writing.</strong> Each SET or DELETE is first appended to
+              the write-ahead log, a file that is only ever added to. The store
+              waits until the operating system confirms the bytes are on disk
+              (<code>fsync</code>) before it replies, and that wait is what
+              makes an acknowledged write durable. It happens on every write,
+              one at a time, with no batching.
             </p>
             <p>
-              <strong>Surviving a crash.</strong> Each record in the log
-              starts with its length, so the store can tell a complete record
-              from one that was cut short. On startup the engine replays the
-              log to rebuild what was in memory. It stops at the first
-              incomplete record and cuts the log off at that point. There are
-              no checksums, so this catches a record that was cut short, but
-              not one whose bytes were damaged.
+              <strong>Surviving a crash.</strong> Each record in the log starts
+              with its length, so the store can tell a complete record from one
+              that was cut short. On startup the engine replays the log to
+              rebuild what was in memory. It stops at the first incomplete
+              record and cuts the log off at that point. There are no checksums,
+              so this catches a record that was cut short, but not one whose
+              bytes were damaged.
             </p>
             <figure class="media" data-tint="bleed">
               <div class="media-stage">
@@ -263,24 +263,22 @@
               memtable) holds the latest value for each key. When it passes a
               size limit (4 MB by default), it is written out as an immutable
               sorted file (an SSTable). The file is written under a temporary
-              name, synced to disk and renamed into place, and only then is
-              the log deleted. Reads check the memtable first, then the sorted
-              files from newest to oldest, because a newer value hides an
-              older one.
+              name, synced to disk and renamed into place, and only then is the
+              log deleted. Reads check the memtable first, then the sorted files
+              from newest to oldest, because a newer value hides an older one.
             </p>
             <p>
-              <strong>Deletes.</strong> A delete is recorded as a marker
-              called a tombstone, first in the log and the memtable and later
-              in the sorted files. A read stops at the first place that
-              mentions the key, so a tombstone hides any older value under it.
+              <strong>Deletes.</strong> A delete is recorded as a marker called
+              a tombstone, first in the log and the memtable and later in the
+              sorted files. A read stops at the first place that mentions the
+              key, so a tombstone hides any older value under it.
             </p>
             <p>
-              <strong>Compaction.</strong> Over time sorted files pile up.
-              When there are four of them, the engine merges them all into one
-              new file, keeping only the newest value for each key and
-              dropping deleted keys. Then it deletes the old files, oldest
-              first, so that a crash part-way through cannot bring a deleted
-              key back.
+              <strong>Compaction.</strong> Over time sorted files pile up. When
+              there are four of them, the engine merges them all into one new
+              file, keeping only the newest value for each key and dropping
+              deleted keys. Then it deletes the old files, oldest first, so that
+              a crash part-way through cannot bring a deleted key back.
             </p>
             <p>
               <strong>Testing.</strong> The worst bugs in a storage engine
@@ -288,11 +286,11 @@
               inject crashes at those moments: after writes that have not been
               flushed yet, at three points in a flush (before the new file is
               renamed into place, after the rename, and after the log is
-              deleted) and at four points in a compaction (after the merged
-              file is written, and after each of the three old files is
-              deleted). Each test kills a real child process at that point,
-              reopens the store and checks that the data written before the
-              crash reads back correctly. That is eight crash points in total.
+              deleted) and at four points in a compaction (after the merged file
+              is written, and after each of the three old files is deleted).
+              Each test kills a real child process at that point, reopens the
+              store and checks that the data written before the crash reads back
+              correctly. That is eight crash points in total.
             </p>
 
             <h2 id="wire-protocol" class="scroll-mt-24">The wire protocol</h2>
@@ -306,27 +304,27 @@ request   [1 byte: command] [4 bytes: key length] [key] [value]
 response  [1 byte: status] [body]</code></pre>
             <p>
               The commands are SET, GET and DELETE, and the statuses are OK,
-              NOT_FOUND and ERROR. The server rejects messages over 16 MB, so
-              a bad length can't make it buffer unlimited data.
+              NOT_FOUND and ERROR. The server rejects messages over 16 MB, so a
+              bad length can't make it buffer unlimited data.
             </p>
             <p>
               A message can arrive split across several network chunks, or
               several messages can arrive in one chunk. So the clients keep
               incoming bytes in a buffer and decode only when a whole frame is
-              there. The TypeScript client does this with a small byte queue
-              and a socket reader that hands out exactly the number of bytes
-              asked for.
+              there. The TypeScript client does this with a small byte queue and
+              a socket reader that hands out exactly the number of bytes asked
+              for.
             </p>
 
             <h2 id="deployment" class="scroll-mt-24">Deployment</h2>
             <p>
               The site runs on a single Linux server (a DigitalOcean VPS) with
               Docker Compose. There are three containers: the store, the Node
-              app and Caddy. Only Caddy publishes ports (80 and 443). The
-              store and the Node app can be reached only inside Compose's
-              private network. The store's data lives in a named volume, so it
-              survives container restarts and reboots, and the containers
-              restart on their own. I tested that by rebooting the server.
+              app and Caddy. Only Caddy publishes ports (80 and 443). The store
+              and the Node app can be reached only inside Compose's private
+              network. The store's data lives in a named volume, so it survives
+              container restarts and reboots, and the containers restart on
+              their own. I tested that by rebooting the server.
             </p>
             <p>
               The server is locked down: a non-root user, SSH keys only (no
@@ -338,32 +336,31 @@ response  [1 byte: status] [body]</code></pre>
               Because anyone can write to the demo, I limited what it can be
               used for: size limits on keys, values and request bodies; a rate
               limit per visitor (60 requests a minute); a global budget (2,000
-              requests to the store an hour) after which the demo says it is
-              at capacity; and a scheduled job that wipes all the data every
-              day at 04:00 UTC.
+              requests to the store an hour) after which the demo says it is at
+              capacity; and a scheduled job that wipes all the data every day at
+              04:00 UTC.
             </p>
 
             <h2 id="limitations" class="scroll-mt-24">Limitations</h2>
             <ul>
               <li>
-                The store has no authentication. It is meant to run on a
-                private network, and in this deployment only the Node app can
-                reach it.
+                The store has no authentication. It is meant to run on a private
+                network, and in this deployment only the Node app can reach it.
               </li>
               <li>
-                The rate limit and the request budget are kept in the Node
-                app's memory, so they reset when it restarts.
+                The rate limit and the request budget are kept in the Node app's
+                memory, so they reset when it restarts.
               </li>
               <li>
                 The demo data is shared between all visitors and wiped daily.
               </li>
               <li>
-                The Console sends and shows text only, while the protocol
-                itself carries raw bytes.
+                The Console sends and shows text only, while the protocol itself
+                carries raw bytes.
               </li>
               <li>
-                It is a single node with no replication, so if the server's
-                disk is lost, so is the data.
+                It is a single node with no replication, so if the server's disk
+                is lost, so is the data.
               </li>
               <li>
                 The engine uses one lock for everything, so it handles one
@@ -381,16 +378,15 @@ response  [1 byte: status] [body]</code></pre>
             </p>
             <p>
               To run it locally with Docker, use
-              <code>docker compose up --build</code> and open
-              http://localhost. The store's tests run with
-              <code>pytest</code>.
+              <code>docker compose up --build</code> and open http://localhost.
+              The store's tests run with <code>pytest</code>.
             </p>
             <p>
               How this was built: I wrote the storage engine, the protocol and
-              both clients myself, working through each piece step by step
-              with an AI assistant that explained the concepts and reviewed my
-              code. The visual design of the site and the text on this page
-              were produced with AI assistance and checked by me.
+              both clients myself, working through each piece step by step with
+              an AI assistant that explained the concepts and reviewed my code.
+              The visual design of the site and the text on this page were
+              produced with AI assistance and checked by me.
             </p>
           </article>
         </div>
@@ -537,15 +533,15 @@ response  [1 byte: status] [body]</code></pre>
 
             <h2 id="background" class="scroll-mt-24">Background</h2>
             <p>
-              I'm Joaquin Rodes, a computer science graduate based in Salford,
-              UK. I have a BSc in Computer Science with First Class Honours
-              from the University of Salford (2026). I'm looking for a junior
-              full-stack or AI-related role.
+              I'm Joaquin Rodes, a computer science graduate based in
+              Manchester, UK. I have a BSc in Computer Science with First Class
+              Honours from the University of Salford (2026). I'm looking for a
+              junior full-stack or AI-related role.
             </p>
             <p>
               I like to understand how things work underneath, so instead of
-              only using a database, I wrote one. The same goes for the rest
-              of this project: I wrote the clients and the web server, and I
+              only using a database, I wrote one. The same goes for the rest of
+              this project: I wrote the clients and the web server, and I
               deployed and secured the server it runs on.
             </p>
             <p>
@@ -559,13 +555,13 @@ response  [1 byte: status] [body]</code></pre>
                   >Budgetly</a
                 >: a personal finance app built with Next.js, TypeScript and
                 PostgreSQL, live at
-                <a href="https://budgetly.uk/">budgetly.uk</a>. It was my
-                final year project.
+                <a href="https://budgetly.uk/">budgetly.uk</a>. It was my final
+                year project.
               </li>
               <li>
-                <a href="https://github.com/joacopobre/notes-api">notes-api</a
-                >: a FastAPI and PostgreSQL backend that uses the Claude API,
-                with a RAG pipeline over notes using pgvector.
+                <a href="https://github.com/joacopobre/notes-api">notes-api</a>:
+                a FastAPI and PostgreSQL backend that uses the Claude API, with
+                a RAG pipeline over notes using pgvector.
               </li>
               <li>
                 <a href="https://github.com/joacopobre/job-scout-agent"
@@ -578,18 +574,14 @@ response  [1 byte: status] [body]</code></pre>
             <h2 id="skills" class="scroll-mt-24">Skills</h2>
             <ul>
               <li><strong>Languages:</strong> TypeScript, Python</li>
-              <li>
-                <strong>Backend:</strong> Node.js, NestJS, FastAPI, PostgreSQL
-              </li>
+              <li><strong>Backend:</strong> Node.js, FastAPI, PostgreSQL</li>
               <li><strong>Frontend:</strong> Next.js, Tailwind CSS</li>
               <li>
                 <strong>Infrastructure:</strong> Docker and Docker Compose, a
                 reverse proxy with automatic HTTPS (Caddy), deploying and
                 securing a Linux server
               </li>
-              <li>
-                <strong>AI:</strong> retrieval-augmented generation (RAG)
-              </li>
+              <li><strong>AI:</strong> retrieval-augmented generation (RAG)</li>
             </ul>
 
             <h2 id="contact" class="scroll-mt-24">Contact</h2>
@@ -625,7 +617,7 @@ response  [1 byte: status] [body]</code></pre>
                   LinkedIn
                 </dt>
                 <dd class="min-w-0 break-words">
-                  <a href="https://linkedin.com/in/joacorodes"
+                  <a href="https://www.linkedin.com/in/joaquin-rodes-195887325/"
                     >linkedin.com/in/joacorodes</a
                   >
                 </dd>
@@ -646,7 +638,9 @@ response  [1 byte: status] [body]</code></pre>
           <span class="h-3 w-px bg-line" aria-hidden="true"></span>
           <span class="text-muted">Joaquin Rodes</span>
         </p>
-        <p class="text-muted sm:order-last">Demo data is wiped every day at 04:00 UTC.</p>
+        <p class="text-muted sm:order-last">
+          Demo data is wiped every day at 04:00 UTC.
+        </p>
         <ul class="flex gap-5 font-mono text-xs text-muted">
           <li>
             <a
